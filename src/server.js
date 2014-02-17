@@ -71,6 +71,107 @@ app.get('/users/:user_id/stations/:station_id', function (req, res) {
 });
 
 
+app.get('/users/:user_id/stations/:station_id/destroy', function (req, res) {
+	var promises = [];
+	var username = req.params.user_id;
+
+	var userQuery = User.findOne({username:username});
+	
+	userQuery.exec().then(function (user) {
+		var stationQuery = Station.findOne({
+			user:user._id,
+			_id:req.params.station_id
+		});
+		
+		stationQuery.exec()
+			.then(function (station) {
+				station.remove(function () {
+					res.header("Access-Control-Allow-Origin", "*");
+					res.write(JSON.stringify(station));
+					res.end();
+				});
+				
+			})
+		
+
+	});
+});
+
+app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (req, res) {
+	var promises = [];
+	var username = req.params.user_id;
+	var station;
+
+	promises.push(User.findOne({username:username}).exec());
+	promises.push(Track.findOne({_id:req.params.track_id}).exec());
+
+	Q.spread(promises, function (user, track) {
+
+		var stationQuery = Station.findOne({
+			user:user._id,
+			_id:req.params.station_id
+		});
+
+		var artistQuery = Artist.findOne({
+			id:track.user_id
+		});
+		
+		Q.spread([stationQuery.exec(), artistQuery.exec()], function (stationMatch, artistMatch) {
+			station = stationMatch;
+
+			station.addArtist(artistMatch)
+				.then(function () {
+					return station.save();
+				})
+
+				.then(function () {
+					res.header("Access-Control-Allow-Origin", "*");
+					res.write(JSON.stringify(station));
+					res.end();
+				})
+		});	
+		
+
+	});
+});
+
+
+app.get('/users/:user_id/stations/:station_id/artists/add/:artist_id', function (req, res) {
+	var promises = [];
+	var username = req.params.user_id;
+	var station;
+
+	promises.push(User.findOne({username:username}).exec());
+	promises.push(Artist.findOne({permalink:req.params.artist_id}).exec());
+
+	Q.spread(promises, function (user, artist) {
+
+		var stationQuery = Station.findOne({
+			user:user._id,
+			_id:req.params.station_id
+		});
+		
+		stationQuery.exec()
+			.then(function (match) {
+				station = match;
+				return station.addArtist(artist);
+			})
+
+			.then(function () {
+				return station.save();
+			})
+
+			.then(function () {
+				res.header("Access-Control-Allow-Origin", "*");
+				res.write(JSON.stringify(station));
+				res.end();
+			})
+		
+
+	});
+});
+
+
 function findNextTrack (userStation) {
 	var trackIndex = Math.round(Math.random() * (userStation.tracks.length - 1));
 	var track = userStation.tracks[trackIndex];
@@ -120,7 +221,7 @@ app.get('/users/:user_id/stations/:station_id/tracks/next', function (req, res) 
 				userStation.history = userStation.history.slice(userStation.history.length - 10, 10);
 			}
 
-			return station.save(userStation);
+			return userStation.save();
 		})
 
 		.then(function () {
