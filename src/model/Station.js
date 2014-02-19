@@ -1,30 +1,37 @@
 var mongoose = require('mongoose');
-var track = require('./track');
-var user = require('./user');
+var user = require('./User');
 var Q = require('q');
+var trackImporter = require('./../import/trackImporter');
+var artistImporter = require('./../import/artistImporter');
 
 
 function createStation (owner, seedArtist) {
-
 	var station = new Station({
 		title:seedArtist.username + ' Radio'
 	});
 
 	return station.addArtist(seedArtist)
 		.then(function () {
+			var defer = Q.defer();
 			station.user = owner;
+			station.save(function () {
+				defer.resolve();
+			});
 
-			return station.save();
+			return defer.promise;
 		})
 
 		.then(function () {
+			var defer = Q.defer();
+
 			owner.stations.push(station);
-			return owner.save();
+			owner.save(function () {
+				defer.resolve(station);
+			});
+
+			return defer.promise;
 		})
 
-		.then(function () {
-			return station;
-		})
 	
 
 
@@ -41,6 +48,8 @@ var stationSchema = new mongoose.Schema({
 
 var Station = mongoose.model('Station', stationSchema);
 
+Station.create = createStation;
+
 Station.prototype.hasTrack = function (track) {
 	var hasTrack = false;
 	var incomingTrackId = (track._id === undefined) ? track : track._id;
@@ -56,35 +65,37 @@ Station.prototype.hasTrack = function (track) {
 };
 
 Station.prototype.addTrack = function (track) {
+
 	if (this.hasTrack(track) === false) {
 		this.tracks.push(track)
 	}
 }
 
+Station.prototype.asJSON = function () {
+	return {
+		title:this.title,
+		track_count:this.tracks.length,
+		_id:this._id
+	}
+}
+
 Station.prototype.addArtist = function (artist) {
-	var defer = Q.defer();
 	var station = this;
 
-	artist.populate('followings tracks', function () {
-		defer.resolve();
-	});
-
-	return defer.promise
+	return trackImporter.importTracks(artist)
 		.then(function () {
-
+			
+			var defer = Q.defer();
 
 			artist.tracks.forEach(station.addTrack.bind(station));
 
-			artist.followings.forEach(function (following) {
-				if(following.tracks) {
-					following.tracks.forEach(station.addTrack.bind(station));
-				}
+			station.save(function () {
+				defer.resolve(station);
 			});
+
+			return defer.promise;
 
 		});
 }
 
-
-exports.schema = stationSchema;
-exports.Station = Station;
-exports.create = createStation;
+module.exports = Station;

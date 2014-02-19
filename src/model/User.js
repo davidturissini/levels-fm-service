@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 var Q = require('q');
-var station = require('./station');
+var station = require('./Station');
 
 
 var userSchema = new mongoose.Schema({
@@ -26,6 +26,4 @@ function createUser (params) {
 }
 
 
-exports.schema = userSchema;
-exports.create = createUser;
-exports.User = User;
+module.exports = User;

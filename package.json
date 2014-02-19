@@ -10,6 +10,7 @@
     "mongoose": "3.8.1",
     "q": "0.8.12",
     "express":"x.x.x",
-    "soundcloud":"git://github.com/davidturissini/soundcloud.git"
+    "soundcloud":"git://github.com/davidturissini/soundcloud.git",
+    "underscore":"x.x.x"
   }
 }

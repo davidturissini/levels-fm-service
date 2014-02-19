@@ -3,14 +3,15 @@ var Q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 var serverPort = 3000;
 var database = require('./database');
-var track = require('./track');
-var Track = track.Track;
-var Artist = require('./artist').Artist;
-var user = require('./user');
-var User = user.User;
-var station = require('./station');
-var Station = station.Station;
-
+var Artist = require('./model/Artist');
+var Track = require('./model/Track');
+var artistImport = require('./import/artistImporter');
+var trackImport = require('./import/trackImporter');
+var User = require('./model/User');
+var Station = require('./model/Station');
+var fs = require('fs');
+var cp = require('child_process');
+var _ = require('underscore');
 var app = express();
 
 soundcloud.configure({
@@ -19,15 +20,15 @@ soundcloud.configure({
 
 
 app.get('/users', function (req, res) {
-	user.create({
+	var user = new User({
 		username:'dave'
-	})
+	});
 
-	.then(function (user) {
+	user.save(function () {
 		res.header("Access-Control-Allow-Origin", "*");
 		res.write(JSON.stringify(user));
 		res.end();
-	});
+	})
 
 });
 
@@ -36,12 +37,16 @@ app.get('/users/:user_id/stations', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
 
-	var userQuery = User.findOne({username:username}).populate('stations stations.tracks');
+	var userQuery = User.findOne({username:username}).populate({
+		path:'stations',
+		select:'title'
+	});
 	
 	userQuery.exec().then(function (user) {
 		res.header("Access-Control-Allow-Origin", "*");
 		res.write(JSON.stringify(user.stations));
 		res.end();
+		
 	});
 	
 });
@@ -54,13 +59,65 @@ app.get('/users/:user_id/stations/:station_id', function (req, res) {
 	var userQuery = User.findOne({username:username});
 	
 	userQuery.exec().then(function (user) {
-		var stationQuery = Station.find({
+		var stationQuery = Station.findOne({
 			user:user._id,
 			_id:req.params.station_id
-		}).populate('tracks');
-		
+		});
+
 		stationQuery.exec()
 			.then(function (station) {
+				res.header("Access-Control-Allow-Origin", "*");
+				res.write(JSON.stringify(station.asJSON()));
+				res.end();
+			})
+		
+
+	});
+});
+
+
+
+
+app.get('/users/:user_id/stations/:station_id/destroy', function (req, res) {
+	var promises = [];
+	var username = req.params.user_id;
+	var stationId = req.params.station_id;
+	var station;
+
+	var userQuery = User.findOne({username:username});
+	
+	userQuery.exec().then(function (user) {
+
+		user.stations.splice(user.stations.indexOf(stationId), 1);
+
+		var stationQuery = Station.findOne({
+			user:user._id,
+			_id:stationId
+		});
+		
+		stationQuery.exec()
+			.then(function (matchedStation) {
+				station = matchedStation;
+				var defer = Q.defer();
+				station.remove(function () {
+					defer.resolve();
+				});
+
+				return defer.promise;
+				
+			})
+
+			.then(function () {
+				var defer = Q.defer();
+
+				user.save(function () {
+					defer.resolve();
+				})
+
+				return defer.promise;
+			})
+
+			.then(function () {
 				res.header("Access-Control-Allow-Origin", "*");
 				res.write(JSON.stringify(station));
 				res.end();
@@ -71,31 +128,6 @@ app.get('/users/:user_id/stations/:station_id', function (req, res) {
 });
 
 
-app.get('/users/:user_id/stations/:station_id/destroy', function (req, res) {
-	var promises = [];
-	var username = req.params.user_id;
-
-	var userQuery = User.findOne({username:username});
-	
-	userQuery.exec().then(function (user) {
-		var stationQuery = Station.findOne({
-			user:user._id,
-			_id:req.params.station_id
-		});
-		
-		stationQuery.exec()
-			.then(function (station) {
-				station.remove(function () {
-					res.header("Access-Control-Allow-Origin", "*");
-					res.write(JSON.stringify(station));
-					res.end();
-				});
-				
-			})
-		
-
-	});
-});
 
 app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (req, res) {
 	var promises = [];
@@ -119,21 +151,30 @@ app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (re
 		Q.spread([stationQuery.exec(), artistQuery.exec()], function (stationMatch, artistMatch) {
 			station = stationMatch;
 
-			station.addArtist(artistMatch)
-				.then(function () {
-					return station.save();
-				})
+			res.header("Access-Control-Allow-Origin", "*");
+			res.write(JSON.stringify(station));
+			res.end();
 
-				.then(function () {
-					res.header("Access-Control-Allow-Origin", "*");
-					res.write(JSON.stringify(station));
-					res.end();
-				})
+
+
+			var filename = station._id + new Date().getTime();
+			fs.writeFile('src/tasks/json/' + filename + '.json', JSON.stringify({
+				station_id:station._id,
+				artist_id:artistMatch.permalink
+			}), function(err) {
+			    
+			    cp.fork(__dirname + '/tasks/import_edge.js', ['-f', filename]);
+			});
 		});	
+
+
 		
 
 	});
 });
+
+
+
 
 
 app.get('/users/:user_id/stations/:station_id/artists/add/:artist_id', function (req, res) {
@@ -170,6 +211,8 @@ app.get('/users/:user_id/stations/:station_id/artists/add/:artist_id', function 
 
 	});
 });
+
+
 
 
 function findNextTrack (userStation) {
@@ -233,28 +276,66 @@ app.get('/users/:user_id/stations/:station_id/tracks/next', function (req, res) 
 
 });
 
+app.get('/artists/:artist_id', function (req, res) {
+
+	Artist.find({
+		permalink:req.params.artist_id
+	}, function (err, match) {
+		res.write(JSON.stringify(match));
+		res.end();
+	})
+
+});
 
 app.get('/users/:user_id/stations/new/:artist_id', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
+	var artistPermalink = req.params.artist_id;
+	var user;
+	var artist;
+	var station;
 
 	var userQuery = User.findOne({username:username});
 	promises.push(userQuery.exec());
 
-	var artistQuery = Artist.findOne({permalink:req.params.artist_id});
+	var artistQuery = Artist.findOne({permalink:artistPermalink});
 	promises.push(artistQuery.exec());
 
-	Q.spread(promises, function (user, artist) {
-		return station.create(user, artist);
+	Q.spread(promises, function (matchedUser, artist) {
+		user = matchedUser;
+		if (!artist) {
+			return artistImport.importArtist(artistPermalink);
+		}
+
+		return artist;
 	})
 
-	.then(function (station) {
+	.then(function (matchedArtist) {
+		artist = matchedArtist;
+		return Station.create(user, artist);
+
+	})
+
+	.then(function (createdStation) {
+		station = createdStation;
+
 		res.header("Access-Control-Allow-Origin", "*");
 		res.write(JSON.stringify(station));
 		res.end();
-	});
+
+		fs.writeFile('src/tasks/json/' + station._id + '.json', JSON.stringify({
+			station_id:station._id,
+			artist_id:artist.permalink
+		}), function(err) {
+		    
+		    cp.fork(__dirname + '/tasks/import_edge.js', ['-f', station._id]);
+		});
+
+			
+	})
 	
 });
+
 
 database.connect()
 	.then(function () {

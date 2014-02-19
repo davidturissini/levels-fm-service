@@ -22,7 +22,7 @@ function createTrack (owner, trackData) {
 }
 
 
-var trackSchema = new mongoose.Schema({
+var trackSchema = mongoose.Schema({
     "id": Number,
     "created_at": Date,
     "user_id": Number,
@@ -70,8 +70,4 @@ var Track = mongoose.model('Track', trackSchema);
 
 
 
-module.exports = {
-    create:createTrack,
-    schema:trackSchema,
-    Track:Track
-};
+module.exports = Track;
