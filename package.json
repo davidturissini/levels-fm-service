@@ -1,5 +1,5 @@
 {
-  "name": "soundcloudjs",
+  "name": "levelsfm-backend",
   "version": "0.1.0",
   "devDependencies": {
     "grunt": "~0.4.2",
@@ -15,5 +15,9 @@
     "express":"x.x.x",
     "soundcloud":"git://github.com/davidturissini/soundcloud.git",
     "underscore":"x.x.x"
+  },
+  "engines": {
+    "node": "0.10.25",
+    "npm": "1.1.36"
   }
 }
