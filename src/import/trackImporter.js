@@ -2,19 +2,26 @@ var Track = require('./../model/Track');
 var Q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 
+soundcloud.configure({
+	client_id:'99308a0184193d62e064cb770f4c1eae'
+});
 
 
 var trackImporter = {
 
 
 	__import:function (artist) {
+		console.log('importing tracks for', artist.permalink);
 		return artist.populateTracks()
 			.then(function () {
-				return soundcloud.api('/users/' + artist.permalink + '/tracks');
-			})
+
+				return soundcloud.joinPaginated('/users/' + artist.permalink + '/tracks', 199, artist.track_count);
+			}.bind(this))
 
 			.then(function (tracksData) {
 				var promises = [];
+
+				console.log('imported tracks', tracksData.length, 'from', artist.permalink);
 				tracksData.forEach(function (trackData) {
 					var track;
 					var defer = Q.defer();

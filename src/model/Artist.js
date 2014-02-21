@@ -36,9 +36,13 @@ var Artist = mongoose.model('Artist', artistSchema);
 Artist.prototype.populateTracks = function () {
 	var defer = Q.defer();
 
-	this.populate('tracks', function () {
+	if (this.tracks.length === 0) {
 		defer.resolve(this.tracks);
-	}.bind(this));
+	} else {
+		this.populate('tracks', function () {
+			defer.resolve(this.tracks);
+		}.bind(this));
+	}
 
 	return defer.promise;
 }

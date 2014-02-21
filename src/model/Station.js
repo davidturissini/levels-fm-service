@@ -14,6 +14,8 @@ function createStation (owner, seedArtist) {
 		.then(function () {
 			var defer = Q.defer();
 			station.user = owner;
+			station.seed_artist = seedArtist;
+			station.seed_artist_permalink = seedArtist.permalink;
 			station.save(function () {
 				defer.resolve();
 			});
@@ -32,14 +34,13 @@ function createStation (owner, seedArtist) {
 			return defer.promise;
 		})
 
-	
-
-
 }
 
 
 var stationSchema = new mongoose.Schema({
 	"title":String,
+	"seed_artist":{type: mongoose.Schema.Types.ObjectId, ref: 'Artist'},
+	"seed_artist_permalink":String,
 	"user":[{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
 	"tracks":[{type: mongoose.Schema.Types.ObjectId, ref: 'Track'}],
 	"history":[{type: mongoose.Schema.Types.ObjectId, ref: 'Track'}]
@@ -75,6 +76,7 @@ Station.prototype.asJSON = function () {
 	return {
 		title:this.title,
 		track_count:this.tracks.length,
+		seed_artist_permalink:this.seed_artist_permalink,
 		_id:this._id
 	}
 }

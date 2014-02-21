@@ -2,49 +2,8 @@ var Q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 var Artist = require('./../model/Artist');
 
-soundcloud.configure({
-	client_id:'99308a0184193d62e064cb770f4c1eae'
-});
-
-
 
 var ArtistImporter = {
-
-	__fullPaginationQuery: function (url, limit, max) {
-		var data = [];
-		var promises = [];
-		var offset = 0;
-		var offsets = [];
-
-		while(offset <= max && max !== 0) {
-			(function (o) {
-
-				var promise = soundcloud.api(url, {
-					limit:limit,
-					offset:o
-				})
-
-				.then(function (returnedData) {
-					data = data.concat(returnedData);
-				})
-
-				promises.push(promise);
-			}(offset));
-
-			if (offset < max && limit + offset > max) {
-				offset = max;
-			} else {
-				offset += limit;
-			}
-
-		}
-
-		return Q.all(promises)
-			.then(function () {
-				return data;
-			})
-	},
-
 
 	importFollowings: function (artist) {
 		var defer = Q.defer();
@@ -57,12 +16,11 @@ var ArtistImporter = {
 		return defer.promise.then(function () {
 
 			if (artist.followings_count === artist.followings.length || (artist.followings_count > 8000 && artist.followings.length === 8000)) {
-				
 				return artist.followings;
 			}
 
-			var max = parseInt(artist.followings_count) > 8000 ? 8000 : artist.followings_count;
-			return this.__fullPaginationQuery('/users/' + artist.permalink + '/followings', 199, max);
+
+			return soundcloud.joinPaginated('/users/' + artist.permalink + '/followings', 199, artist.followings_count);
 		}.bind(this))
 
 		.then(function (followersData) {	
@@ -132,12 +90,13 @@ var ArtistImporter = {
 				return artist.followers;
 			}
 
-			var max = parseInt(artist.followers_count) > 8000 ? 8000 : artist.followers_count;
-			return this.__fullPaginationQuery('/users/' + artist.permalink + '/followers', 199, max);
+			return soundcloud.joinPaginated('/users/' + artist.permalink + '/followers', 199, artist.followers_count);
+			
 		}.bind(this))
 
 		.then(function (followersData) {	
 			var promises = [];
+			console.log('followers fetched', followersData.length)
 
 			followersData.forEach(function (followerData) {
 				var promise;
@@ -174,7 +133,6 @@ var ArtistImporter = {
 					})
 
 					.then(function (follower) {
-
 						artist.followers.push(follower);
 					});
 
@@ -191,12 +149,25 @@ var ArtistImporter = {
 		})
 	},
 
+	findOrImport: function (permalink) {
+		var artistImport = this;
+		var artistQuery = Artist.findOne({permalink:permalink});
+
+		return artistQuery.exec()
+			.then(function (artist) {
+				if (!artist) {
+					return artistImport.importArtist(permalink);
+				}
+
+				return artist;
+
+			});
+	},
+
 	importArtist: function (permalink) {
 		return soundcloud.api('/users/' + permalink)
 			.then(function (artistData) {
-
 				return new Artist(artistData);
-
 			});
 
 	},
