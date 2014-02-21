@@ -9,7 +9,6 @@ function connectionString() {
 	return mongoUri;
 }
 
-
 exports.connect = function () {
 	var deferred = Q.defer();
 
