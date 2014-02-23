@@ -2,7 +2,7 @@ var express = require('express');
 var cors = require('cors');
 var Q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
-var serverPort = process.env.PORT || 3000;
+var serverPort = 3000; //process.env.PORT || 3000;
 var database = require('./database');
 var Artist = require('./model/Artist');
 var Track = require('./model/Track');
@@ -133,7 +133,6 @@ app.del('/users/:user_id/stations/:station_id', function (req, res) {
 app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
-	var station;
 
 	promises.push(User.findOne({username:username}).exec());
 	promises.push(Track.findOne({_id:req.params.track_id}).exec());
@@ -144,65 +143,19 @@ app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (re
 			user:user._id,
 			_id:req.params.station_id
 		});
-
-		var artistQuery = Artist.findOne({
-			id:track.user_id
-		});
 		
-		Q.spread([stationQuery.exec(), artistQuery.exec()], function (stationMatch, artistMatch) {
-			station = stationMatch;
-
+		Q.spread([stationQuery.exec(), soundcloud.api('/users/' + track.user_id)], function (station, artistMatch) {
+			
 			res.write(JSON.stringify(station));
 			res.end();
 			
-			importEdgeDelegate(artistMatch.permalink, station._id);
+			importEdgeDelegate(artistMatch.permalink, station._id, 3);
 			
-		});	
-
-
-		
-
-	});
-});
-
-
-
-
-
-app.get('/users/:user_id/stations/:station_id/artists/add/:artist_id', function (req, res) {
-	var promises = [];
-	var username = req.params.user_id;
-	var station;
-
-	promises.push(User.findOne({username:username}).exec());
-	promises.push(Artist.findOne({permalink:req.params.artist_id}).exec());
-
-	Q.spread(promises, function (user, artist) {
-
-		var stationQuery = Station.findOne({
-			user:user._id,
-			_id:req.params.station_id
 		});
 		
-		stationQuery.exec()
-			.then(function (match) {
-				station = match;
-				return station.addArtist(artist);
-			})
-
-			.then(function () {
-				return station.save();
-			})
-
-			.then(function () {
-				res.write(JSON.stringify(station));
-				res.end();
-			})
-		
 
 	});
 });
-
 
 
 
@@ -277,12 +230,20 @@ app.get('/artists/:artist_id', function (req, res) {
 
 });
 
+app.get('/tracks/:track_id', function (req, res) {
+	Track.findOne({
+		_id:req.params.track_id
+	}, function (err, match) {
+		res.write(JSON.stringify(match));
+		res.end();
+	})
+})
+
 app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
 	var artistPermalink = req.params.artist_id;
 	var artist;
-	console.log('post');
 
 	var userQuery = User.findOne({username:username});
 	promises.push(userQuery.exec());
@@ -301,7 +262,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 		res.end();
 
 
-		importEdgeDelegate(artist.permalink, station._id);
+		importEdgeDelegate(artist.permalink, station._id, 20);
 
 			
 	})

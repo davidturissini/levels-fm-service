@@ -4,133 +4,52 @@ var database = require('./../database');
 var Station = require('./../model/Station');
 var Q = require('q');
 var artist;
-var station;
-var json;
-var jsonPath;
 var Artist = require('./../model/Artist');
+var importTracksFromArtist = require('./import_tracks_from_artist');
+var Track = require('./../model/Track');
+
+var stationIdIndex = process.argv.indexOf('-s');
+var stationId = process.argv[stationIdIndex + 1];
+var artistPermalinkIndex = process.argv.indexOf('-a');
+var artistPermalink = process.argv[artistPermalinkIndex + 1];
+var edgeLimitIndex = process.argv.indexOf('-el');
+var edgeLimit = process.argv[edgeLimitIndex + 1];
+
+var stationQuery = Station.findOne({
+	_id:stationId
+});
 
 database.connect()
 	.then(function () {
+		return stationQuery.exec()
+			.then(function (station) {
+				processStation(artistPermalink, station);
+			});
+	});
+
+
+function processStation(artistPermalink, station) {
+
 		var defer = Q.defer();
-		var artistIndex = process.argv.indexOf('-a');
-		var artistName = process.argv[artistIndex + 1];
-		var stationIdIndex = process.argv.indexOf('-s');
-		var stationId = process.argv[stationIdIndex + 1];
-
-		json = {
-			artist_id:artistName,
-			station_id:stationId
-		}
-
-	})
-
-	.then(function () {
-		var query = Artist.findOne({
-			permalink:json.artist_id
-		});
-		return query.exec();
-	})
-
-
-	.then(function (importedArtist) {
-		artist = importedArtist;
-		console.log('importing followings for', json.artist_id);
-		return artistImport.importFollowings(artist);
-	})
-
-	.then(function () {
-
-		var query = Station.findOne({
-			_id:json.station_id
+		station.populate('tracks', function () {
+			defer.resolve(station);
 		});
 
-		return query.exec();
-	})
 
-	.then(function (matchedStation) {
+		defer.promise.then(function (matchedStation) {
+			station = matchedStation;
 
-		station = matchedStation;
-		var promises = [];
-
-		artist.followings.forEach(function (following) {
-			promises.push(station.addArtist(following));
-		});
-
-		return Q.all(promises);
-
-	})
-
-	.then(function () {
-		
-
-		console.log('checking to see if should include followers');
-		if (artist.followings.length === 0) {
-			console.log('importing followers');
-			return artistImport.importFollowers(artist)
-				.then(function () {
-					var defer = Q.defer();
-
-					artist.populate({
-						path:'followers',
-						match: {
-							track_count: {
-								$gt: 0
-							}
-						},
-						options:{
-
-							sort:{
-								'followers_count':-1
-							},
-
-							limit:30
-
-						}
-					}, function () {
-						defer.resolve();
-					})
-
-					return defer.promise;
-				})
-
-				.then(function () {
-					var promises = [];
-					artist.followers.forEach(function (following) {
-						promises.push(station.addArtist(following));
-					});
-
-
-					return Q.all(promises);
-				})
 			
-		}
+			return importTracksFromArtist(artistPermalink, station, edgeLimit)
+				.then(function () {}, function () {}, function (track) {
+					console.log('notified', track._id);
+				});
 
-	})
 
-	.then(function () {
-		console.log('saving station')
-		var defer = Q.defer();
-
-		station.save(function () {
-			console.log('station saved', json.station_id);
-			console.log('station tracks', station.tracks.length);
-			defer.resolve();
 		})
 
-		return defer.promise;
-	})
-
-	.then(function () {
-		var defer = Q.defer();
-
-		fs.unlink(jsonPath, function () {
-			defer.resolve();
-		});
-
-		return defer.promise;
-	})
-
-	.then(function () {
-		console.log('exiting');
-		process.exit();
-	})
+		.then(function () {
+			console.log('exiting');
+			process.exit();
+		})
+	}

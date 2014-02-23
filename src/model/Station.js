@@ -68,7 +68,7 @@ Station.prototype.hasTrack = function (track) {
 Station.prototype.addTrack = function (track) {
 
 	if (this.hasTrack(track) === false) {
-		this.tracks.push(track)
+		this.tracks.push(track);
 	}
 }
 

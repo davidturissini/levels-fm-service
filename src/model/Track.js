@@ -68,6 +68,38 @@ var trackSchema = mongoose.Schema({
 
 var Track = mongoose.model('Track', trackSchema);
 
+Track.findOrCreate = function (trackData) {
+
+    var query = Track.findOne({
+        permalink_url:trackData.permalink_url
+    });
+
+    return query.exec()
+        .then(function (track) {
+            var defer;
+
+            if (!track) {
+                defer = Q.defer();
+                track = new Track(trackData);
+
+                track.save(function () {
+                    console.log('track saved', track.permalink_url);
+                    defer.resolve(track);
+                });
+
+                console.log('track save attempted');
+                
+                return defer.promise;
+
+            } else {
+                return track;
+            }
+            
+        });
+
+    
+}
+
 
 
 module.exports = Track;

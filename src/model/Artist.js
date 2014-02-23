@@ -1,5 +1,5 @@
 var mongoose = require('mongoose');
-var Q = require('q');
+var Q = q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 
 
@@ -31,6 +31,106 @@ var artistSchema = new mongoose.Schema({
 
 
 var Artist = mongoose.model('Artist', artistSchema);
+
+
+Artist.createIfNotExists = function (artistData) {
+
+	var query = Artist.findOne({
+		permalink:artistData.permalink
+	});
+
+	return query.exec()
+		.then(function (artist) {
+			var defer;
+
+			if (artist) {
+				return artist;
+			}
+
+			defer = Q.defer();
+
+			artist = new Artist(artistData);
+
+			console.log('saving artist', artist.permalink);
+			artist.save(function () {
+				console.log('artist saved', artist.permalink);
+				defer.resolve();
+			});
+
+			return defer.promise;
+
+		});
+
+}
+
+Artist.prototype.soundcloudGetAdjacentArtists = function () {
+	console.log('fetching ' + this.permalink);
+	var limit = this.followers_count > 2000 ? 2000 : this.followers_count;
+	return soundcloud.joinPaginated('/users/' + this.permalink + '/followers', 199, limit)
+		.then(function (followers) {
+			var totalFollowings = [];
+			var artistPromises = [];
+			var queue = [];
+			var defer = q.defer();
+			var numFollowers = followers.length;
+			var numFetched = 0;
+
+			console.log('found', followers.length, 'followers');
+
+			followers.forEach(function (follower) {
+				artistPromises.push(Artist.createIfNotExists(follower));
+			});
+
+			while(followers.length > 0) {
+				(function (splicedFollowers) {
+
+					queue.push(function () {
+						var promises = [];
+						splicedFollowers.forEach(function (follower) {
+							
+							
+							console.log('fetching', follower.permalink, 'followings.', follower.followings_count, 'found');
+							var promise = soundcloud.joinPaginated('/users/' + follower.permalink + '/followings', 199, follower.followings_count);
+
+							promise = promise.then(function (followings) {
+								console.log('fetched', follower.permalink, 'followings.', follower.followings_count, 'total');
+								numFetched += 1;
+								
+								console.log('fetched', numFetched, 'of', numFollowers);
+								totalFollowings = totalFollowings.concat(followings);
+
+
+							});
+
+							promises.push(promise);
+						});
+
+						return q.all(promises);
+					});
+				})(followers.splice(0, 100))
+				
+			}
+
+
+			var defer = q.defer();
+			var result = defer.promise;
+			defer.resolve();
+			
+			queue.forEach(function (f) {
+			    result = result.then(f);
+			});
+
+			return result
+				.then(function () {
+					return q.all(artistPromises);
+				})
+
+				.then(function () {
+					return totalFollowings;
+				})
+
+		});
+}
 
 
 Artist.prototype.populateTracks = function () {
