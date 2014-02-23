@@ -10,10 +10,10 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 	var totalFollowings = [];
 	var artistPromises = [];
 	var numFetched = 0;
-	var followingsDictionary = {};
 	var time = new Date().getTime();
 	var importDeferred = q.defer();
 	var artist;
+	var followingsDictionary = {};
 
 	var artistQuery = Artist.findOne({
 		permalink:artistPermalink
@@ -31,18 +31,20 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 		})
 
 		.then(function (totalFollowings) {
+
 			var followingsArray = [];
 			var tracksPromises = [];
 			var tracks = [];
+			
 
 			console.log('counting artists');
-			totalFollowings.forEach(function (following) {
-				var permalink = following.permalink;
+			totalFollowings.forEach(function (artistData) {
+				var permalink = artistData.permalink;
 
 				if (typeof followingsDictionary[permalink] === 'undefined') {
 					followingsDictionary[permalink] = {
 						count:1,
-						artist:following
+						artist:artistData
 					};
 				} else {
 					followingsDictionary[permalink].count += 1;
@@ -51,37 +53,46 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 			});
 
 
+
 			for(var permalink in followingsDictionary) {
 				if (followingsDictionary.hasOwnProperty(permalink) && permalink !== artistPermalink && followingsDictionary[permalink].artist.track_count !== 0) {
 					followingsArray.push(followingsDictionary[permalink]);
 				}
 			}
-
 			console.log('sorting artists');
-			var sorted = followingsArray.sort(function (a, b) {
-				if (a.count < b.count) {
-					return 1;
+			var sorted = _.sortBy(followingsArray, function (a) {
+				if (a.artist.track_count < 2) {
+					return 100000;
 				}
 
+				return 100000 - a.count;
+			});
 
-				return -1;
-			}).slice(0, adjacentFollowingsLimit).sort(function (a, b) {
+			var totalTrackCount = 0;
+			sorted = sorted.splice(0, adjacentFollowingsLimit).sort(function (a, b) {
 				if (a.artist.track_count < b.artist.track_count) {
 					return -1;
 				}
 
 				return 1;
 			});
-
 			var queue = [];
 			sorted.forEach(function (sortedArtist) {
+
 				var artist = sortedArtist.artist;
+				totalTrackCount += artist.track_count;
+				console.log('track count --------', totalTrackCount);
 				var permalink = artist.permalink;
 				var promises = [];
 				console.log('building track queue for', permalink);
 				queue.push(function () {
 					console.log('fetching tracks for', permalink);
-					return soundcloud.joinPaginated('/users/' + permalink + '/tracks', 199, artist.track_count)
+					return soundcloud.joinPaginated('/users/' + permalink + '/tracks', 199, artist.track_count, {
+						duration:{
+							from:1000*60*3,
+							to:1000*60*10
+						}
+					})
 						.then(function () {
 							return q.all(promises)
 								.then(function () {
@@ -93,6 +104,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 							console.log('progress!');
 							var trackPromises = [];
 							var tracks = [];
+
 							artistTracks.forEach(function (trackData) {
 								var promise = Track.findOrCreate(trackData);
 

@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 var Q = q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
+var _ = require('underscore');
 
 
 var artistSchema = new mongoose.Schema({
@@ -94,8 +95,15 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 								numFetched += 1;
 								
 								console.log('fetched', numFetched, 'of', numFollowers);
-								totalFollowings = totalFollowings.concat(followings);
+								var map = _.map(followings, function (artist) {
+									return {
+										permalink:artist.permalink,
+										track_count:artist.track_count
+									};
+								});
 
+
+								totalFollowings = totalFollowings.concat(map);
 
 							});
 
@@ -104,7 +112,7 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 
 						return q.all(promises);
 					});
-				})(followers.splice(0, 100))
+				})(followers.splice(0, 50))
 				
 			}
 
