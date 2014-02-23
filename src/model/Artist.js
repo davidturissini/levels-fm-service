@@ -77,9 +77,6 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 
 			console.log('found', followers.length, 'followers');
 
-			followers.forEach(function (follower) {
-				artistPromises.push(Artist.createIfNotExists(follower));
-			});
 
 			while(followers.length > 0) {
 				(function (splicedFollowers) {
@@ -121,9 +118,6 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 			});
 
 			return result
-				.then(function () {
-					return q.all(artistPromises);
-				})
 
 				.then(function () {
 					return totalFollowings;
