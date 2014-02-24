@@ -55,7 +55,7 @@ app.get('/users/:user_id/stations', function (req, res) {
 });
 
 
-app.get('/users/:user_id/stations/:station_id', function (req, res) {
+app.get('/stations/:station_id', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
 
@@ -80,67 +80,60 @@ app.get('/users/:user_id/stations/:station_id', function (req, res) {
 
 
 
-app.del('/users/:user_id/stations/:station_id', function (req, res) {
+app.del('/stations/:station_id', function (req, res) {
 	var promises = [];
-	var username = req.params.user_id;
 	var stationId = req.params.station_id;
 	var station;
+	var user;
 
-	var userQuery = User.findOne({username:username});
-	
-	userQuery.exec().then(function (user) {
+
+	Station.findOne({
+		_id:stationId
+	}).exec()
+
+	.then(function (match) {
+		station = match;
+		var defer = Q.defer();
+
+
+		station.populate('user', function () {
+			user = station.user;
+			defer.resolve();
+		});
+
+		return defer.promise;
+	})
+
+	.then(function () {
+		var defer = Q.defer();
+		station.remove(function () {
+			defer.resolve();
+		});
+
+		return defer.promise;
+	})
+
+	.then(function () {
+
+		res.write(JSON.stringify(station.asJSON()));
+		res.end();
 
 		user.stations.splice(user.stations.indexOf(stationId), 1);
-
-		var stationQuery = Station.findOne({
-			user:user._id,
-			_id:stationId
-		});
-		
-		stationQuery.exec()
-			.then(function (matchedStation) {
-				station = matchedStation;
-				var defer = Q.defer();
-				station.remove(function () {
-					defer.resolve();
-				});
-
-				return defer.promise;
-				
-			})
-
-			.then(function () {
-				var defer = Q.defer();
-
-				user.save(function () {
-					defer.resolve();
-				})
-
-				return defer.promise;
-			})
-
-			.then(function () {
-				res.write(JSON.stringify(station.asJSON()));
-				res.end();
-			})
-		
+		user.save();
 
 	});
+
 });
 
 
 
-app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (req, res) {
+app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
 	var promises = [];
-	var username = req.params.user_id;
 
-	promises.push(User.findOne({username:username}).exec());
-	promises.push(Track.findOne({_id:req.params.track_id}).exec());
-
-	Q.spread(promises, function (user, track) {
-
+	Track.findOne({_id:req.params.track_id})
+	.exec()
+	.then(function (track) {
 		var stationQuery = Station.findOne({
-			user:user._id,
 			_id:req.params.station_id
 		});
 		
@@ -152,8 +145,6 @@ app.get('/users/:user_id/stations/:station_id/tracks/up/:track_id', function (re
 			importEdgeDelegate(artistMatch.permalink, station._id, 3);
 			
 		});
-		
-
 	});
 });
 
@@ -172,72 +163,65 @@ function findNextTrack (userStation) {
 }
 
 
-app.get('/users/:user_id/stations/:station_id/tracks/next', function (req, res) {
-	var promises = [];
-	var username = req.params.user_id;
-	var nextTrack;
-	var userQuery = User.findOne({username:username});
+app.get('/stations/:station_id/tracks/next', function (req, res) {
+	var station;
 	
-	userQuery.exec()
-
-		.then(function (user) {
-			var stationQuery = Station.findOne({
-				user:user._id,
-				_id:req.params.station_id
-			}).populate({
-				path:'tracks',
-				match: {
-					duration: {
-						$gt:1000*60*3,
-						$lt:1000*60*10
-					}
-				}
-			});
-
-			return stationQuery.exec();
-				
-		})
-
-		.then(function (userStation) {
-			nextTrack = findNextTrack(userStation);
-
-			
-			userStation.history.push(nextTrack);
-
-			if (userStation.history.length > 10) {
-				userStation.history = userStation.history.slice(userStation.history.length - 10, 10);
+	Station.findOne({
+		_id:req.params.station_id
+	}).populate({
+		path:'tracks',
+		match: {
+			duration: {
+				$gt:1000*60*3,
+				$lt:1000*60*10
 			}
+		}
+	}).exec()
 
-			return userStation.save();
-		})
+	.then(function (match) {
+		station = match;
+		var nextTrack = findNextTrack(station);
 
-		.then(function () {
-			res.write(JSON.stringify(nextTrack));
+		return nextTrack;
+		
+	})
+
+	.then(function (track) {
+		res.write(JSON.stringify(track));
+		res.end();
+
+		station.history.push(track);
+
+		if (station.history.length > 10) {
+			station.history = station.history.slice(station.history.length - 10, 10);
+		}
+
+		return station.save();
+	})
+
+});
+
+app.del('/stations/:station_id/tracks/:track_id', function (req, res) {
+
+	Station.findOne({
+		_id:req.params.station_id
+	}).exec()
+
+	.then(function (station) {
+
+		var trackIndex = station.tracks.indexOf(req.params.track_id);
+		station.tracks.splice(trackIndex, 1);
+
+		station.save(function () {
+			console.log('removed', req.params.track_id, 'from station', station.title);
+			res.write(JSON.stringify(station.asJSON()));
 			res.end();
-		})
+		});
 
-});
-
-
-app.get('/artists/:artist_id', function (req, res) {
-
-	Artist.find({
-		permalink:req.params.artist_id
-	}, function (err, match) {
-		res.write(JSON.stringify(match));
-		res.end();
 	})
 
 });
 
-app.get('/tracks/:track_id', function (req, res) {
-	Track.findOne({
-		_id:req.params.track_id
-	}, function (err, match) {
-		res.write(JSON.stringify(match));
-		res.end();
-	})
-})
 
 app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 	var promises = [];
