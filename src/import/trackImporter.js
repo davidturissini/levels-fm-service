@@ -24,23 +24,13 @@ var trackImporter = {
 				console.log('imported tracks', tracksData.length, 'from', artist.permalink);
 				tracksData.forEach(function (trackData) {
 					var track;
-					var defer = Q.defer();
 
 					if (artist.hasTrack(trackData) === true) {
 						return;
 					}
 
-
-					track = new Track(trackData);
-					artist.tracks.push(track);
-
-					track.save(function () {
-						defer.resolve();
-					});
-
-					promises.push(defer.promise);
-
-				})
+					promises.push(Track.create(trackData, artist));
+				});
 
 				return Q.all(promises);
 

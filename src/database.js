@@ -4,7 +4,7 @@ var mongoose = require('mongoose');
 function connectionString() {
 	var mongoUri = process.env.MONGOLAB_URI || 
 	  process.env.MONGOHQ_URL || 
-	  'mongodb://localhost/foo22'; 
+	  'mongodb://localhost/foo23'; 
 
 	return mongoUri;
 }

@@ -8,12 +8,12 @@ var Artist = require('./../model/Artist');
 
 function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLimit) {
 	var totalFollowings = [];
-	var artistPromises = [];
 	var numFetched = 0;
 	var time = new Date().getTime();
 	var importDeferred = q.defer();
 	var artist;
 	var followingsDictionary = {};
+	var importedArtists;
 
 	var artistQuery = Artist.findOne({
 		permalink:artistPermalink
@@ -59,95 +59,111 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 					followingsArray.push(followingsDictionary[permalink]);
 				}
 			}
+
+
 			console.log('sorting artists');
 			var sorted = _.sortBy(followingsArray, function (a) {
 				if (a.artist.track_count < 2) {
-					return 100000;
+					return 1;
 				}
 
-				return 100000 - a.count;
+				return -a.count;
 			});
 
-			var totalTrackCount = 0;
-			sorted = sorted.splice(0, adjacentFollowingsLimit).sort(function (a, b) {
+
+
+
+			
+			var spliced = sorted.splice(0, adjacentFollowingsLimit).sort(function (a, b) {
 				if (a.artist.track_count < b.artist.track_count) {
 					return -1;
 				}
 
 				return 1;
 			});
-			var queue = [];
-			sorted.forEach(function (sortedArtist) {
 
+
+			
+
+			return spliced;
+		})
+
+		.then(function (spliced) {
+			var queue = [];
+
+			spliced.forEach(function (sortedArtist) {
+				console.log('artistcount', sortedArtist.count);
+				
 				var artist = sortedArtist.artist;
-				totalTrackCount += artist.track_count;
-				console.log('track count --------', totalTrackCount);
+
 				var permalink = artist.permalink;
 				var promises = [];
 				console.log('building track queue for', permalink);
 				queue.push(function () {
+					var processedTracksCount = 0;
 					console.log('fetching tracks for', permalink);
 					return soundcloud.joinPaginated('/users/' + permalink + '/tracks', 199, artist.track_count, {
-						duration:{
-							from:1000*60*3,
-							to:1000*60*10
-						}
+						'filter':'streamable',
+						'duration[from]':1000*60*3,
+						'duration[to]':1000*60*10
 					})
-						.then(function () {
-							return q.all(promises)
-								.then(function () {
-									console.log('ok, all tracks saved for', permalink);
-									return tracks;
-								})
 
-						}, function () {}, function (artistTracks) {
-							console.log('progress!');
-							var trackPromises = [];
-							var tracks = [];
+					.then(function () {
+						return q.all(promises)
+							.then(function () {
+								console.log('ok, all tracks saved for', permalink);
+							})
 
-							artistTracks.forEach(function (trackData) {
-								var promise = Track.findOrCreate(trackData);
+					}, function () {}, function (artistTracks) {
+						console.log('progress!');
+						var trackPromises = [];
+						var tracks = [];
 
-								promise = promise.then(function (track) {
-									tracks.push(track);
+						artistTracks.forEach(function (trackData) {
+							var promise = Track.findOrCreate(trackData, artist);
+
+							promise = promise.then(function (track) {
+								tracks.push(track);
+							});
+
+							processedTracksCount += tracks.length;
+							trackPromises.push(promise);
+
+						});
+
+						var promise = q.all(trackPromises)
+							.then(function () {
+								var defer = q.defer();
+
+								Station.findOne({
+									_id:station._id
+								}).exec().then(function (station) {
+									console.log('saving tracks', tracks.length);
+									tracks.forEach(function (track) {
+										station.addTrack(track);
+										console.log('adding', track._id);
+									});
+
+									station.save(function (err, s, numAffected) {
+										console.log('station saved after notified');
+										defer.resolve();
+									});
+
 								});
 
-								trackPromises.push(promise);
+								
+								return defer.promise;
 
 							});
 
-							var promise = q.all(trackPromises)
-								.then(function () {
-									var defer = q.defer();
+						promises.push(promise);
 
-									Station.findOne({
-										_id:station._id
-									}).exec().then(function (station) {
-										console.log('saving tracks', tracks.length);
-										tracks.forEach(function (track) {
-											station.addTrack(track);
-											console.log('adding', track._id);
-										});
+					});
 
-										station.save(function (err, s, numAffected) {
-											console.log('station saved after notified');
-											defer.resolve();
-										});
-
-									});
-
-									
-									return defer.promise;
-
-								});
-
-							promises.push(promise);
-
-						})
 				});
-				
 
 			});
+
 
 			var defer = q.defer();
 			var result = defer.promise;
@@ -164,15 +180,12 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 		.then(function (tracks) {
 			var duration = (new Date().getTime() - time) / 1000;
 			console.log('elapsed time', duration);
-
 			importDeferred.resolve();
 		});
 
 
-	return importDeferred.promise
-		.then(function () {
-			return q.all(artistPromises);
-		});
+	return importDeferred.promise;
+
 }
 
 module.exports = importTracksFromArtist;

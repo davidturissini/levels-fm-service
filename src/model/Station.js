@@ -3,7 +3,7 @@ var user = require('./User');
 var Q = require('q');
 var trackImporter = require('./../import/trackImporter');
 var artistImporter = require('./../import/artistImporter');
-
+var Track = require('./Track');
 
 function createStation (owner, seedArtist) {
 	var station = new Station({
@@ -80,6 +80,104 @@ Station.prototype.asJSON = function () {
 		_id:this._id
 	}
 }
+
+
+Station.prototype.populateHistory = function () {
+	var defer = Q.defer();
+
+	if (this.populated('history') === undefined) {
+		this.populate('history', function () {
+			defer.resolve();
+		});
+	} else {
+		defer.resolve();
+	}
+
+	return defer.promise;
+}
+
+Station.prototype.populateTracks = function () {
+	var defer = Q.defer();
+
+	if (this.populated('tracks') === undefined) {
+		this.populate('tracks', function () {
+			defer.resolve();
+		});
+	} else {
+		defer.resolve();
+	}
+
+	return defer.promise;
+}
+
+Station.prototype.getNextTrack = function () {
+
+	return this.populateHistory()
+		.then(function () {
+			var artistPermalinks = [];
+			var trackIds = [];
+			var idFilters;
+
+			this.history.forEach(function (track) {
+				artistPermalinks.push(track.artist_permalink);
+				trackIds.push(track._id);
+			});
+
+			idFilters = {
+				'$in':this.tracks,
+				'$nin':trackIds
+			};
+
+			return Track.find({
+				_id:idFilters,
+				artist_permalink:{
+					'$nin':artistPermalinks
+				}
+			}).exec()
+
+			.then(function (tracks) {
+				if (tracks.length === 0) {
+
+					return Track.find({
+						_id:idFilters
+					}).exec()
+
+				} else {
+					return tracks;
+				}
+
+			})
+
+			.then(function (tracks) {
+				var trackIndex = Math.round(Math.random() * (tracks.length - 1));
+				var track = tracks[trackIndex];
+
+				return track;
+
+			});
+
+
+		}.bind(this));
+
+}
+
+
+Station.prototype.addToHistory = function (track) {
+	var defer = Q.defer();
+
+	this.history.push(track);
+
+	if (this.history.length > 10) {
+		this.history.shift();
+	}
+
+	this.save(function () {
+		defer.resolve();
+	});
+
+	return defer.promise;
+}
+
 
 Station.prototype.addArtist = function (artist) {
 	var station = this;

@@ -76,7 +76,7 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 			var numFollowers = followers.length;
 			var numFetched = 0;
 
-			console.log('found', followers.length, 'followers');
+			
 
 
 			while(followers.length > 0) {
@@ -132,6 +132,18 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 				})
 
 		});
+}
+
+Artist.prototype.soundcloudGetFollowings = function () {
+	return soundcloud.joinPaginated('/users/' + this.permalink + '/followings', 199, this.followings_count)
+		.then(function (followings) {
+			return _.map(followings, function (artist) {
+					return {
+						permalink:artist.permalink,
+						track_count:artist.track_count
+					};
+				});
+		})
 }
 
 

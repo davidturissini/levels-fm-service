@@ -78,8 +78,6 @@ app.get('/stations/:station_id', function (req, res) {
 });
 
 
-
-
 app.del('/stations/:station_id', function (req, res) {
 	var promises = [];
 	var stationId = req.params.station_id;
@@ -149,55 +147,34 @@ app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
 });
 
 
-
-function findNextTrack (userStation) {
-	var trackIndex = Math.round(Math.random() * (userStation.tracks.length - 1));
-	var track = userStation.tracks[trackIndex];
-	var trackId = track._id;
-
-	if(userStation.history.indexOf(trackId) !== -1) {
-		track = findNextTrack(userStation);
-	}
-
-	return track;
-}
-
-
 app.get('/stations/:station_id/tracks/next', function (req, res) {
 	var station;
-	
+
 	Station.findOne({
 		_id:req.params.station_id
-	}).populate({
-		path:'tracks',
-		match: {
-			duration: {
-				$gt:1000*60*3,
-				$lt:1000*60*10
-			}
-		}
 	}).exec()
 
 	.then(function (match) {
 		station = match;
-		var nextTrack = findNextTrack(station);
-
-		return nextTrack;
-		
+		return station.getNextTrack();
 	})
 
 	.then(function (track) {
-		res.write(JSON.stringify(track));
-		res.end();
+		
 
-		station.history.push(track);
+		return Station.findById(station._id)
+			.exec()
 
-		if (station.history.length > 10) {
-			station.history = station.history.slice(station.history.length - 10, 10);
-		}
+			.then(function (station) {
+				return station.addToHistory(track);
+			})
 
-		return station.save();
-	})
+			.then(function () {
+				res.write(JSON.stringify(track));
+				res.end();
+			})
+		
+	});
 
 });
 
@@ -246,7 +223,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 		res.end();
 
 
-		importEdgeDelegate(artist.permalink, station._id, 20);
+		importEdgeDelegate(artist.permalink, station._id, 40);
 
 			
 	})

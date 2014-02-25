@@ -2,19 +2,15 @@ var mongoose = require('mongoose');
 var Q = require('q');
 
 
-function createTrack (owner, trackData) {
+function createTrack (trackData, artistData) {
+
+
     var defer = Q.defer();
-
     var track = new Track(trackData);
-
+    track.artist_permalink = artistData.permalink;
 
     track.save(function (err, result) {
-
-        owner.tracks.push(track);
-        owner.save(function (err, result) {
-            defer.resolve(track);
-        });
-        
+        defer.resolve(track);
     });
 
     return defer.promise;
@@ -23,6 +19,7 @@ function createTrack (owner, trackData) {
 
 
 var trackSchema = mongoose.Schema({
+    "artist_permalink": String,
     "id": Number,
     "created_at": Date,
     "user_id": Number,
@@ -68,7 +65,9 @@ var trackSchema = mongoose.Schema({
 
 var Track = mongoose.model('Track', trackSchema);
 
-Track.findOrCreate = function (trackData) {
+Track.create = createTrack;
+
+Track.findOrCreate = function (trackData, artist) {
 
     var query = Track.findOne({
         permalink_url:trackData.permalink_url
@@ -76,24 +75,13 @@ Track.findOrCreate = function (trackData) {
 
     return query.exec()
         .then(function (track) {
-            var defer;
 
             if (!track) {
-                defer = Q.defer();
-                track = new Track(trackData);
+                return Track.create(trackData, artist);
 
-                track.save(function () {
-                    console.log('track saved', track.permalink_url);
-                    defer.resolve(track);
-                });
-
-                console.log('track save attempted');
-                
-                return defer.promise;
-
-            } else {
-                return track;
             }
+            
+            return track;
             
         });
 
