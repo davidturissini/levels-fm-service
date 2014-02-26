@@ -68,6 +68,9 @@ var Track = mongoose.model('Track', trackSchema);
 Track.create = createTrack;
 
 Track.findOrCreate = function (trackData, artist) {
+    if (!artist || (artist && !artist.permalink)) {
+        throw new Error('Could not create track, artist not specified');
+    }
 
     var query = Track.findOne({
         permalink_url:trackData.permalink_url

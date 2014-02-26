@@ -2,6 +2,8 @@ var mongoose = require('mongoose');
 var Q = q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 var _ = require('underscore');
+var Track = require('./Track');
+var Artists = require('./../collection/Artists');
 
 
 var artistSchema = new mongoose.Schema({
@@ -64,9 +66,41 @@ Artist.createIfNotExists = function (artistData) {
 
 }
 
-Artist.prototype.soundcloudGetAdjacentArtists = function () {
+Artist.prototype.soundcloudGetTracks = function () {
+	var tracks = [];
+	var trackParams = {
+		'filter':'streamable',
+		'duration[from]':1000*60*3,
+		'duration[to]':1000*60*10
+	};
+	
+	return soundcloud.joinPaginated('/users/' + this.permalink + '/tracks', 199, this.track_count, trackParams)
+		.then(function (tracksData) {
+			var promises = [];
+
+			tracksData.forEach(function (trackData) {
+				var promise = Track.findOrCreate(trackData, this)
+					.then(function (track) {
+						tracks.push(track);
+					})
+
+				promises.push(promise);
+			}.bind(this));
+
+			return Q.all(promises);
+
+		}.bind(this))
+
+		.then(function () {
+			return tracks;
+		});
+};
+
+Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
+	options = _.extend({select:[]}, options || {});
 	console.log('fetching ' + this.permalink);
 	var limit = this.followers_count > 2000 ? 2000 : this.followers_count;
+	var thisPermalink = this.permalink;
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/followers', 199, limit)
 		.then(function (followers) {
 			var totalFollowings = [];
@@ -75,8 +109,6 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 			var defer = q.defer();
 			var numFollowers = followers.length;
 			var numFetched = 0;
-
-			
 
 
 			while(followers.length > 0) {
@@ -95,12 +127,25 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 								numFetched += 1;
 								
 								console.log('fetched', numFetched, 'of', numFollowers);
-								var map = _.map(followings, function (artist) {
-									return {
-										permalink:artist.permalink,
-										track_count:artist.track_count
-									};
+								var map = _.map(followings, function (artistData) {
+									var params = {};
+									if (artistData.permalink === thisPermalink) {
+										return;
+									}
+
+									if (options.select.length === 0) {
+										params = artistData;
+									} else {
+										options.select.forEach(function (prop) {
+											params[prop] = artistData[prop];
+										});
+									}
+
+									return new Artist(params);
+									
 								});
+
+								map = _.compact(map);
 
 
 								totalFollowings = totalFollowings.concat(map);
@@ -128,13 +173,14 @@ Artist.prototype.soundcloudGetAdjacentArtists = function () {
 			return result
 
 				.then(function () {
-					return totalFollowings;
+					return new Artists(totalFollowings);
 				})
 
 		});
 }
 
 Artist.prototype.soundcloudGetFollowings = function () {
+	
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/followings', 199, this.followings_count)
 		.then(function (followings) {
 			return _.map(followings, function (artist) {

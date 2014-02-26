@@ -29,7 +29,6 @@ database.connect()
 
 
 function processStation(artistPermalink, station) {
-
 		var defer = Q.defer();
 		station.populate('tracks', function () {
 			defer.resolve(station);
@@ -39,12 +38,7 @@ function processStation(artistPermalink, station) {
 		defer.promise.then(function (matchedStation) {
 			station = matchedStation;
 
-			
-			return importTracksFromArtist(artistPermalink, station, edgeLimit)
-				.then(function () {}, function () {}, function (track) {
-					console.log('notified', track._id);
-				});
-
+			return importTracksFromArtist(artistPermalink, station, edgeLimit);
 
 		})
 
