@@ -4,7 +4,8 @@ var _ = require('underscore');
 var Track = require('./../model/Track');
 var Station = require('./../model/Station');
 var Artist = require('./../model/Artist');
-var Artists = require('./../collection/Artists');
+var AdjacentArtists = require('./../collection/AdjacentArtists');
+
 
 
 function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLimit) {
@@ -14,59 +15,32 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 	var importDeferred = q.defer();
 	var artist;
 	var importedArtists;
-	
-
 
 	return soundcloud.api('/users/' + artistPermalink)
 
 		.then(function (artistData) {
 			artist = new Artist(artistData);
+			
+			return artist.soundcloudGetFavorites()
+				.then(function (tracks) {
+					return Station.findByIdAndAddTracks(station._id, tracks);
+				});
 
+		})
+
+		.then(function () {
 			return artist.soundcloudGetAdjacentArtists({
 				select:['permalink', 'track_count']
 			});
 		})
 
 		.then(function (adjacentArtists) {
-			var tracksPromises = [];
-			var tracks = [];
-			
-
-			var followingsArray = adjacentArtists.countAndSort();
-
-
-			console.log('sorting artists');
-			var sorted = _.sortBy(followingsArray, function (a) {
-				if (a.artist.track_count < 2) {
-					return 1;
-				}
-
-				return -a.count;
-			});
-
-			
-			var spliced = sorted.splice(0, adjacentFollowingsLimit).sort(function (a, b) {
-				if (a.artist.track_count < b.artist.track_count) {
-					return -1;
-				}
-
-				return 1;
-			});
-
-
-			
-
-			return spliced;
-		})
-
-		.then(function (spliced) {
+			var spliced = adjacentArtists.getCluster();
 			var queue = [];
-			console.log('--------------', spliced, '-----------');
 
 			spliced.forEach(function (sortedArtist) {
-				console.log('artistcount', sortedArtist.count);
 				
-				var artist = new Artist(sortedArtist.artist);
+				var artist = new Artist(sortedArtist);
 
 				var permalink = artist.permalink;
 				var promises = [];
@@ -75,24 +49,10 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 
 					console.log('fetching tracks for', permalink);
 
-					return artist.soundcloudGetTracks()
+					return artist.soundcloudGetTracksAndFavorites()
 
 						.then(function (tracks) {
-							
-							return Station.findOne({
-									_id:station._id
-								}).exec().then(function (station) {
-									var defer = q.defer();
-									console.log('saving tracks', artist.permalink, 'num tracks:', tracks.length);
-									station.addTracks(tracks);
-									station.save(function (err, s, numAffected) {
-										console.log('station saved after notified');
-										defer.resolve();
-									});
-
-									return defer.promise;
-
-								});
+							return Station.findByIdAndAddTracks(station._id, tracks);
 
 						});
 

@@ -3,7 +3,7 @@ var Q = q = require('q');
 var soundcloud = require('soundcloud').soundcloud;
 var _ = require('underscore');
 var Track = require('./Track');
-var Artists = require('./../collection/Artists');
+var AdjacentArtists = require('./../collection/AdjacentArtists');
 
 
 var artistSchema = new mongoose.Schema({
@@ -173,10 +173,50 @@ Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 			return result
 
 				.then(function () {
-					return new Artists(totalFollowings);
-				})
+					return new AdjacentArtists(totalFollowings);
+				});
 
 		});
+}
+
+
+Artist.prototype.soundcloudGetTracksAndFavorites = function () {
+	return this.soundcloudGetTracks()
+
+		.then(function (tracks) {
+			console.log('fetching favorites for', this.permalink);
+			return this.soundcloudGetFavorites()
+				.then(function (favorites) {
+					return tracks.concat(favorites);
+				});
+		}.bind(this));
+};
+
+Artist.prototype.soundcloudGetFavorites = function () {
+	var artist = this;
+
+	return soundcloud.api('/users/' + this.permalink + '/favorites')
+		.then(function (favorites) {
+			var promises = [];
+			var tracks = [];
+
+			favorites.forEach(function (favorite) {
+				var promise = Track.findOrCreate(favorite, artist)
+					.then(function (track) {
+						tracks.push(track);
+					});
+
+				promises.push(promise);
+			});
+
+
+			return Q.all(promises)
+				.then(function () {
+					return tracks;
+				})
+			
+		});
+		
 }
 
 Artist.prototype.soundcloudGetFollowings = function () {

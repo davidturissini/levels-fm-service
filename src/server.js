@@ -128,21 +128,19 @@ app.del('/stations/:station_id', function (req, res) {
 app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
 	var promises = [];
 
-	Track.findOne({_id:req.params.track_id})
-	.exec()
+	Track.findById(req.params.track_id).exec()
 	.then(function (track) {
-		var stationQuery = Station.findOne({
-			_id:req.params.station_id
-		});
+		var stationQuery = Station.findById(req.params.station_id);
 		
-		Q.spread([stationQuery.exec(), soundcloud.api('/users/' + track.user_id)], function (station, artistMatch) {
+		stationQuery.exec()
+			.then(function (station) {
 			
-			res.write(JSON.stringify(station));
-			res.end();
-			
-			importEdgeDelegate(artistMatch.permalink, station._id, 3);
-			
-		});
+				res.write(JSON.stringify(station));
+				res.end();
+				
+				importEdgeDelegate(track.artist_permalink, station._id, 3);
+				
+			});
 	});
 });
 
@@ -150,9 +148,7 @@ app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
 app.get('/stations/:station_id/tracks/next', function (req, res) {
 	var station;
 
-	Station.findOne({
-		_id:req.params.station_id
-	}).exec()
+	Station.findById(req.params.station_id).exec()
 
 	.then(function (match) {
 		station = match;
@@ -162,8 +158,7 @@ app.get('/stations/:station_id/tracks/next', function (req, res) {
 	.then(function (track) {
 		
 
-		return Station.findById(station._id)
-			.exec()
+		return Station.findById(station._id).exec()
 
 			.then(function (station) {
 				return station.addToHistory(track);
@@ -222,11 +217,9 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 		res.write(JSON.stringify(station.asJSON()));
 		res.end();
 
-
 		importEdgeDelegate(artist.permalink, station._id, 40);
-
 			
-	})
+	});
 	
 });
 

@@ -17,6 +17,20 @@ var stationSchema = new mongoose.Schema({
 
 var Station = mongoose.model('Station', stationSchema);
 
+Station.findByIdAndAddTracks = function (id, tracks) {
+	console.log('saving tracks to station', id);
+	return Station.findById(id).exec()
+		.then(function (station) {
+			var defer = Q.defer();
+			station.addTracks(tracks);
+			station.save(function () {
+				defer.resolve(station);
+			});
+
+			return defer.promise;
+		});
+}
+
 Station.create = function (owner, seedArtist) {
 	var station = new Station({
 		title:seedArtist.username + ' Radio'
