@@ -157,17 +157,11 @@ app.get('/stations/:station_id/tracks/next', function (req, res) {
 
 	.then(function (track) {
 		
+		station.addToHistory(track);
+		res.write(JSON.stringify(track));
+		res.end();
 
-		return Station.findById(station._id).exec()
-
-			.then(function (station) {
-				return station.addToHistory(track);
-			})
-
-			.then(function () {
-				res.write(JSON.stringify(track));
-				res.end();
-			})
+		station.save();
 		
 	});
 

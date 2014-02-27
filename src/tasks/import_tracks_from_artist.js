@@ -39,7 +39,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 			var spliced = adjacentArtists.getCluster();
 			var queue = [];
 			var numExecuted = 0;
-			console.log('sssssssssssssssss', station);
+
 			spliced.forEach(function (sortedArtist) {
 				
 				var artist = new Artist(sortedArtist);
@@ -52,7 +52,22 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 
 					return artist.soundcloudGetTracksAndFavorites()
 
-						.then(station.addTracks.bind(station));
+						.then(station.addTracks.bind(station))
+
+						.then(function () {
+							var defer;
+							if (numExecuted !== 1) {
+								return;
+							}
+
+							defer = q.defer();
+
+							Station.update({_id: station._id}, {tracks:station.tracks}, {}, function () {
+								defer.resolve();
+							});
+
+							return defer.promise;
+						})
 
 				});
 
@@ -66,6 +81,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 			queue.forEach(function (f) {
 			    result = result.then(f);
 			});
+			
 			return result;
 			
 

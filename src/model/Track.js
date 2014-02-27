@@ -19,6 +19,7 @@ function createTrack (trackData, artistData) {
 
 
 var trackSchema = mongoose.Schema({
+    "user":Object,
     "artist_permalink": String,
     "id": Number,
     "created_at": Date,

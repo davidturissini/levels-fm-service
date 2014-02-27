@@ -4,6 +4,7 @@ var Q = require('q');
 var trackImporter = require('./../import/trackImporter');
 var artistImporter = require('./../import/artistImporter');
 var Track = require('./Track');
+var _ = require('underscore');
 
 var stationSchema = new mongoose.Schema({
 	"title":String,
@@ -35,7 +36,6 @@ Station.create = function (owner, seedArtist) {
 		.then(function () {
 			var defer = Q.defer();
 			station.user = owner;
-			station.seed_artist = seedArtist;
 			station.seed_artist_permalink = seedArtist.permalink;
 			station.save(function () {
 				defer.resolve();
@@ -59,14 +59,24 @@ Station.create = function (owner, seedArtist) {
 
 Station.prototype.hasTrack = function (track) {
 	var hasTrack = false;
-	var incomingTrackId = (track.id === undefined) ? track : track.id;
+	var incomingTrackId = (typeof track.id === 'undefined') ? track : track.id;
 
-	return (this.tracks.indexOf(track.id) !== -1);
+	this.tracks.forEach(function (trackReference) {
+		if (trackReference.id === incomingTrackId) {
+			hasTrack = true;
+		}
+	});
+
+
+	return hasTrack;
 };
 
 Station.prototype.addTrack = function (track) {
 	if (this.hasTrack(track) === false) {
-		this.tracks.push(track.id);
+		this.tracks.push({
+			id:track.id,
+			artist_permalink:track.user.permalink
+		});
 	}
 }
 
@@ -112,18 +122,51 @@ Station.prototype.populateTracks = function () {
 }
 
 Station.prototype.getNextTrack = function () {
-	var index = Math.round(Math.random() * (this.tracks.length - 1));
+	var historyTrackIds = [];
+	var historyArtistIds = [];
+	var availableTracks = [];
+	var trackIndex;
 
-	return this.tracks[index];
+
+	this.history.forEach(function (history) {
+		historyTrackIds.push(history.id);
+		historyArtistIds.push(history.artist_permalink);
+	});
+
+
+	this.tracks.forEach(function (track) {
+		if (historyTrackIds.indexOf(track.id) === -1 && historyArtistIds.indexOf(track.artist_permalink) === -1) {
+			availableTracks.push(track);
+		}
+	});
+
+	if (availableTracks.length === 0) {
+		this.tracks.forEach(function (track) {
+			if (historyTrackIds.indexOf(track.id) === -1) {
+				availableTracks.push(track);
+			}
+		});
+	}
+
+	trackIndex = Math.round(Math.random() * (availableTracks.length - 1));
+
+
+
+	return availableTracks[trackIndex];
 
 }
 
+/*
+	@param track
+	@param track.id -> soundcloud track id
+	@param track.artist_permalink -> soundcloud artist permalink
+*/
 Station.prototype.addToHistory = function (track) {
-	var defer = Q.defer();
+	this.history.push(track);
 
-	defer.resolve();
-
-	return defer.promise;
+	if (this.history.length > 10) {
+		this.history.shift();
+	}
 }
 
 Station.prototype.addArtist = function (artist) {

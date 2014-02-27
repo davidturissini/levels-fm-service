@@ -12,8 +12,6 @@ var stationIdIndex = process.argv.indexOf('-s');
 var stationId = process.argv[stationIdIndex + 1];
 var artistPermalinkIndex = process.argv.indexOf('-a');
 var artistPermalink = process.argv[artistPermalinkIndex + 1];
-var edgeLimitIndex = process.argv.indexOf('-el');
-var edgeLimit = process.argv[edgeLimitIndex + 1];
 
 var stationQuery = Station.findOne({
 	_id:stationId
@@ -29,8 +27,7 @@ database.connect()
 
 
 function processStation(artistPermalink, station) {
-
-		return importTracksFromArtist(artistPermalink, station, edgeLimit)
+		return importTracksFromArtist(artistPermalink, station)
 
 			.then(function () {
 				console.log('exiting');
