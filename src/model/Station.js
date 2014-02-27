@@ -10,8 +10,8 @@ var stationSchema = new mongoose.Schema({
 	"seed_artist":{type: mongoose.Schema.Types.ObjectId, ref: 'Artist'},
 	"seed_artist_permalink":String,
 	"user":[{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
-	"tracks":[{type: mongoose.Schema.Types.ObjectId, ref: 'Track'}],
-	"history":[{type: mongoose.Schema.Types.ObjectId, ref: 'Track'}]
+	"tracks":[],
+	"history":[]
 });
 
 
@@ -21,13 +21,8 @@ Station.findByIdAndAddTracks = function (id, tracks) {
 	console.log('saving tracks to station', id);
 	return Station.findById(id).exec()
 		.then(function (station) {
-			var defer = Q.defer();
 			station.addTracks(tracks);
-			station.save(function () {
-				defer.resolve(station);
-			});
-
-			return defer.promise;
+			return station;
 		});
 }
 
@@ -64,21 +59,14 @@ Station.create = function (owner, seedArtist) {
 
 Station.prototype.hasTrack = function (track) {
 	var hasTrack = false;
-	var incomingTrackId = (track._id === undefined) ? track : track._id;
+	var incomingTrackId = (track.id === undefined) ? track : track.id;
 
-
-	this.tracks.forEach(function (trackId) {
-		if (trackId.toString() === incomingTrackId.toString()) {
-			hasTrack = true;
-		}
-	});
-
-	return hasTrack;
+	return (this.tracks.indexOf(track.id) !== -1);
 };
 
 Station.prototype.addTrack = function (track) {
 	if (this.hasTrack(track) === false) {
-		this.tracks.push(track);
+		this.tracks.push(track.id);
 	}
 }
 
@@ -124,71 +112,16 @@ Station.prototype.populateTracks = function () {
 }
 
 Station.prototype.getNextTrack = function () {
+	var index = Math.round(Math.random() * (this.tracks.length - 1));
 
-	return this.populateHistory()
-		.then(function () {
-
-			var artistPermalinks = [];
-			var trackIds = [];
-			var idFilters;
-
-			this.history.forEach(function (track) {
-				artistPermalinks.push(track.artist_permalink);
-				trackIds.push(track._id);
-			});
-
-
-			idFilters = {
-				'$in':this.tracks,
-				'$nin':trackIds
-			};
-
-			return Track.find({
-				_id:idFilters,
-				artist_permalink:{
-					'$nin':artistPermalinks
-				}
-			}).exec()
-
-			.then(function (tracks) {
-
-				if (tracks.length === 0) {
-
-					return Track.find({
-						_id:idFilters
-					}).exec()
-
-				} else {
-					return tracks;
-				}
-
-			})
-
-			.then(function (tracks) {
-				var trackIndex = Math.round(Math.random() * (tracks.length - 1));
-				var track = tracks[trackIndex];
-
-				return track;
-
-			});
-
-
-		}.bind(this));
+	return this.tracks[index];
 
 }
 
 Station.prototype.addToHistory = function (track) {
 	var defer = Q.defer();
 
-	this.history.push(track);
-
-	if (this.history.length > 10) {
-		this.history.shift();
-	}
-
-	this.save(function () {
-		defer.resolve();
-	});
+	defer.resolve();
 
 	return defer.promise;
 }

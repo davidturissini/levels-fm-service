@@ -67,7 +67,7 @@ Artist.createIfNotExists = function (artistData) {
 }
 
 Artist.prototype.soundcloudGetTracks = function () {
-	var tracks = [];
+	
 	var trackParams = {
 		'filter':'streamable',
 		'duration[from]':1000*60*3,
@@ -76,22 +76,12 @@ Artist.prototype.soundcloudGetTracks = function () {
 	
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/tracks', 199, this.track_count, trackParams)
 		.then(function (tracksData) {
-			var promises = [];
+			var tracks = [];
 
 			tracksData.forEach(function (trackData) {
-				var promise = Track.findOrCreate(trackData, this)
-					.then(function (track) {
-						tracks.push(track);
-					})
+				tracks.push(new Track(trackData));
+			});
 
-				promises.push(promise);
-			}.bind(this));
-
-			return Q.all(promises);
-
-		}.bind(this))
-
-		.then(function () {
 			return tracks;
 		});
 };
@@ -181,6 +171,7 @@ Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 
 
 Artist.prototype.soundcloudGetTracksAndFavorites = function () {
+	console.log('fetching tracks for', this.permalink);
 	return this.soundcloudGetTracks()
 
 		.then(function (tracks) {
@@ -197,23 +188,14 @@ Artist.prototype.soundcloudGetFavorites = function () {
 
 	return soundcloud.api('/users/' + this.permalink + '/favorites')
 		.then(function (favorites) {
-			var promises = [];
+			
 			var tracks = [];
 
 			favorites.forEach(function (favorite) {
-				var promise = Track.findOrCreate(favorite, artist)
-					.then(function (track) {
-						tracks.push(track);
-					});
-
-				promises.push(promise);
+				tracks.push(new Track(favorite));
 			});
 
-
-			return Q.all(promises)
-				.then(function () {
-					return tracks;
-				})
+			return tracks;
 			
 		});
 		

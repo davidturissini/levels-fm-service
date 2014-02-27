@@ -29,21 +29,11 @@ database.connect()
 
 
 function processStation(artistPermalink, station) {
-		var defer = Q.defer();
-		station.populate('tracks', function () {
-			defer.resolve(station);
-		});
 
+		return importTracksFromArtist(artistPermalink, station, edgeLimit)
 
-		defer.promise.then(function (matchedStation) {
-			station = matchedStation;
-
-			return importTracksFromArtist(artistPermalink, station, edgeLimit);
-
-		})
-
-		.then(function () {
-			console.log('exiting');
-			process.exit();
-		})
+			.then(function () {
+				console.log('exiting');
+				process.exit();
+			})
 	}

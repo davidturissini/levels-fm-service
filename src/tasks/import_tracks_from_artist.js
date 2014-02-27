@@ -16,6 +16,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 	var artist;
 	var importedArtists;
 
+
 	return soundcloud.api('/users/' + artistPermalink)
 
 		.then(function (artistData) {
@@ -23,7 +24,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 			
 			return artist.soundcloudGetFavorites()
 				.then(function (tracks) {
-					return Station.findByIdAndAddTracks(station._id, tracks);
+					station.addTracks(tracks);
 				});
 
 		})
@@ -37,7 +38,8 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 		.then(function (adjacentArtists) {
 			var spliced = adjacentArtists.getCluster();
 			var queue = [];
-
+			var numExecuted = 0;
+			console.log('sssssssssssssssss', station);
 			spliced.forEach(function (sortedArtist) {
 				
 				var artist = new Artist(sortedArtist);
@@ -46,15 +48,11 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 				var promises = [];
 				console.log('building track queue for', permalink);
 				queue.push(function () {
-
-					console.log('fetching tracks for', permalink);
+					numExecuted += 1;
 
 					return artist.soundcloudGetTracksAndFavorites()
 
-						.then(function (tracks) {
-							return Station.findByIdAndAddTracks(station._id, tracks);
-
-						});
+						.then(station.addTracks.bind(station));
 
 				});
 
@@ -73,14 +71,17 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 
 		})
 
-		.then(function (tracks) {
-			var duration = (new Date().getTime() - time) / 1000;
-			console.log('elapsed time', duration);
-			importDeferred.resolve();
+		.then(function () {
+			Station.update({_id: station._id}, {tracks:station.tracks}, {}, function () {
+				var duration = (new Date().getTime() - time) / 1000;
+				console.log('elapsed time', duration);
+				importDeferred.resolve();
+			});
+
+			return importDeferred.promise;
+			
 		});
-
-
-	return importDeferred.promise;
+	
 
 }
 
