@@ -1,12 +1,13 @@
 var _ = require('underscore');
 var clusterfck = require('clusterfck');
+var Artists = require('./Artists');
 
-function Artists (artists) {
+function AdjacentArtists (artists) {
 	this._artists = artists;
 	this._count = null;
 }
 
-Artists.prototype = {
+AdjacentArtists.prototype = {
 
 	add: function (artist) {
 		this._artists.push(artist);
@@ -83,9 +84,9 @@ Artists.prototype = {
 			return 1;
 		});
 
-		return spliced;
+		return new Artists(spliced);
 	}
 
 };
 
-module.exports = Artists;
+module.exports = AdjacentArtists;

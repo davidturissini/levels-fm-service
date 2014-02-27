@@ -4,6 +4,7 @@ var soundcloud = require('soundcloud').soundcloud;
 var _ = require('underscore');
 var Track = require('./Track');
 var AdjacentArtists = require('./../collection/AdjacentArtists');
+var Artists = require('./../collection/Artists');
 
 
 var artistSchema = new mongoose.Schema({
@@ -89,7 +90,7 @@ Artist.prototype.soundcloudGetTracks = function () {
 Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 	options = _.extend({select:[]}, options || {});
 	console.log('fetching ' + this.permalink);
-	var limit = this.followers_count > 2000 ? 2000 : this.followers_count;
+	var limit = this.followers_count > 500 ? 500 : this.followers_count;
 	var thisPermalink = this.permalink;
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/followers', 199, limit)
 		.then(function (followers) {
@@ -147,7 +148,7 @@ Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 
 						return q.all(promises);
 					});
-				})(followers.splice(0, 50))
+				})(followers.splice(0, 20))
 				
 			}
 
@@ -205,13 +206,13 @@ Artist.prototype.soundcloudGetFollowings = function () {
 	
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/followings', 199, this.followings_count)
 		.then(function (followings) {
-			return _.map(followings, function (artist) {
-					return {
-						permalink:artist.permalink,
-						track_count:artist.track_count
-					};
-				});
-		})
+			var artistsArray = _.map(followings, function (artist) {
+				return new Artist(artist);
+			});
+
+			return new Artists(artistsArray);
+
+		});
 }
 
 
