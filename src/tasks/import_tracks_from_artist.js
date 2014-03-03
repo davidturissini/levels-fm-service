@@ -21,35 +21,11 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 
 		.then(function (artistData) {
 			artist = new Artist(artistData);
-			
-			return artist.soundcloudGetFavorites()
-				.then(function (tracks) {
-					station.addTracks(tracks);
-				});
-
-		})
-
-		.then(function () {
-			return artist.soundcloudGetFollowings()
-				.then(function (artists) {
-					return artists.soundcloudGetTracks();
-				})
-
-				.then(function (tracks) {
-					var defer = q.defer();
-					station.addTracks(tracks);
-
-					Station.update({_id: station._id}, {tracks:station.tracks}, {}, function () {
-						defer.resolve();
-					});
-
-					return defer.promise;
-				})
 		})
 
 		.then(function () {
 			return artist.soundcloudGetAdjacentArtists({
-				select:['permalink', 'track_count']
+				select:['permalink', 'track_count', 'followers_count']
 			});
 		})
 

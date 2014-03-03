@@ -5,6 +5,12 @@ var Artists = require('./Artists');
 function AdjacentArtists (artists) {
 	this._artists = artists;
 	this._count = null;
+	this._blacklist = [
+		'flux-pavilion',
+		'skrillex',
+		'soundcloud',
+		'diplo'
+	];
 }
 
 AdjacentArtists.prototype = {
@@ -55,26 +61,29 @@ AdjacentArtists.prototype = {
 
 		console.log('sorting artists');
 		var sorted = _.sortBy(followingsArray, function (a) {
-			if (a.artist.track_count < 2) {
+			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
 				return 1;
 			}
 
-			return -a.count;
-		});
-		
-		var spliced = sorted.splice(0, 40);
+			a.percentage = ((a.count / a.artist.followers_count) * 100);
+			return -a.percentage;
+		}.bind(this));
 
+		var spliced = sorted.splice(0, 40);
+		
+/*
 		var data = [];
 		spliced.forEach(function (artistData) {
-			var d = [1, 1, artistData.count];
+			var ratio = ((a.count / a.artist.followers_count) * 10000);
+			var d = [1, 1, ratio];
 			d.artist = artistData.artist;
 			data.push(d);
 		});
 
 		var clusters = clusterfck.kmeans(data, 2);
 		var clusterIndex = (clusters[0][0] > clusters[1][0]) ? 0 : 1;
-
-		spliced = _.map(clusters[clusterIndex], function (clusterData) {
+*/
+		spliced = _.map(spliced, function (clusterData) {
 			return clusterData.artist;
 		}).sort(function (a, b) {
 			if (a.track_count < b.track_count) {
@@ -83,6 +92,8 @@ AdjacentArtists.prototype = {
 
 			return 1;
 		});
+
+
 
 		return new Artists(spliced);
 	}
