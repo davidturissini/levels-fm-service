@@ -90,6 +90,7 @@ Artist.prototype.soundcloudGetTracks = function () {
 Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 	options = _.extend({select:[]}, options || {});
 	console.log('fetching ' + this.permalink);
+	var artist = this;
 	var limit = this.followers_count > 500 ? 500 : this.followers_count;
 	var thisPermalink = this.permalink;
 	return soundcloud.joinPaginated('/users/' + this.permalink + '/followers', 199, limit)
@@ -164,7 +165,7 @@ Artist.prototype.soundcloudGetAdjacentArtists = function (options) {
 			return result
 
 				.then(function () {
-					return new AdjacentArtists(totalFollowings);
+					return new AdjacentArtists(artist, totalFollowings);
 				});
 
 		});

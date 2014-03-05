@@ -1,12 +1,6 @@
-var artistImport = require('./../import/artistImporter');
-var fs = require('fs');
 var database = require('./../database');
 var Station = require('./../model/Station');
-var Q = require('q');
-var artist;
-var Artist = require('./../model/Artist');
 var importTracksFromArtist = require('./import_tracks_from_artist');
-var Track = require('./../model/Track');
 
 var stationIdIndex = process.argv.indexOf('-s');
 var stationId = process.argv[stationIdIndex + 1];

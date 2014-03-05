@@ -25,7 +25,7 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 
 		.then(function () {
 			return artist.soundcloudGetAdjacentArtists({
-				select:['permalink', 'track_count', 'followers_count']
+				select:['permalink', 'track_count', 'followers_count', 'followings_count']
 			});
 		})
 

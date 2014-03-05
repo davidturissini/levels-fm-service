@@ -2,7 +2,8 @@ var _ = require('underscore');
 var clusterfck = require('clusterfck');
 var Artists = require('./Artists');
 
-function AdjacentArtists (artists) {
+function AdjacentArtists (mainArtist, artists) {
+	this._mainArtist = mainArtist;
 	this._artists = artists;
 	this._count = null;
 	this._blacklist = [
@@ -61,28 +62,40 @@ AdjacentArtists.prototype = {
 
 		console.log('sorting artists');
 		var sorted = _.sortBy(followingsArray, function (a) {
+			var percentage;
 			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
 				return 1;
 			}
 
-			a.percentage = ((a.count / a.artist.followers_count) * 100);
-			return -a.percentage;
+			percentage = ((a.count / a.artist.followers_count) * 100);
+			a.score = percentage;
+
+			if (this._mainArtist.followers_count > 1000000 || this._mainArtist.followings_count === 0) {
+				return -a.count;
+			}
+
+			return -a.score;
+
 		}.bind(this));
 
+		
 		var spliced = sorted.splice(0, 40);
 		
-/*
-		var data = [];
-		spliced.forEach(function (artistData) {
-			var ratio = ((a.count / a.artist.followers_count) * 10000);
-			var d = [1, 1, ratio];
-			d.artist = artistData.artist;
-			data.push(d);
-		});
+		
+		if (this._mainArtist.followers_count > 1000000 || this._mainArtist.followings_count === 0) {
+			var data = [];
+			spliced.forEach(function (artistData) {
+				var d = [1, 1, artistData.count];
+				d.artist = artistData.artist;
+				data.push(d);
+			});
 
-		var clusters = clusterfck.kmeans(data, 2);
-		var clusterIndex = (clusters[0][0] > clusters[1][0]) ? 0 : 1;
-*/
+			var clusters = clusterfck.kmeans(data, 2);
+			
+			var clusterIndex = (clusters[0][0][2] > clusters[1][0][2]) ? 0 : 1;
+			spliced = clusters[clusterIndex];
+		}
+
 		spliced = _.map(spliced, function (clusterData) {
 			return clusterData.artist;
 		}).sort(function (a, b) {
