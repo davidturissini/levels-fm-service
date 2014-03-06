@@ -8,7 +8,7 @@ var AdjacentArtists = require('./../collection/AdjacentArtists');
 
 
 
-function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLimit) {
+function importTracksFromArtist (artistPermalink, station, edgeLimit) {
 	var totalFollowings = [];
 	var numFetched = 0;
 	var time = new Date().getTime();
@@ -30,12 +30,16 @@ function importTracksFromArtist (artistPermalink, station, adjacentFollowingsLim
 		})
 
 		.then(function (adjacentArtists) {
-			var artists = adjacentArtists.getCluster();
+			var artists = adjacentArtists.getCluster(edgeLimit);
 			var queue = [];
 			var numExecuted = 0;
 
 			return artists.soundcloudGetTracks()
-				.then(station.addTracks.bind(station));
+				.then(function (tracks) {
+					tracks.forEach(function (track) {
+						station.addTrack(track, 'You liked ' + artist.username);
+					});
+				});
 
 		})
 

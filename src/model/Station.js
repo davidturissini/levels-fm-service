@@ -17,7 +17,7 @@ var stationSchema = new mongoose.Schema({
 
 
 var Station = mongoose.model('Station', stationSchema);
-
+/*
 Station.findByIdAndAddTracks = function (id, tracks) {
 	console.log('saving tracks to station', id);
 	return Station.findById(id).exec()
@@ -26,7 +26,7 @@ Station.findByIdAndAddTracks = function (id, tracks) {
 			return station;
 		});
 }
-
+*/
 Station.create = function (owner, seedArtist) {
 	var station = new Station({
 		title:seedArtist.username + ' Radio'
@@ -61,27 +61,35 @@ Station.prototype.hasTrack = function (track) {
 	var hasTrack = false;
 	var incomingTrackId = (typeof track.id === 'undefined') ? track : track.id;
 
-	this.tracks.forEach(function (trackReference) {
-		if (trackReference.id === incomingTrackId) {
-			hasTrack = true;
-		}
-	});
-
-
-	return hasTrack;
+	return !(this.getTrackById(incomingTrackId) === null);
 };
 
-Station.prototype.addTrack = function (track) {
+Station.prototype.addTrack = function (track, reason) {
 	if (this.hasTrack(track) === false) {
 		this.tracks.push({
 			id:track.id,
-			artist_permalink:track.user.permalink
+			artist_permalink:track.user.permalink,
+			duration:track.duration,
+			title:track.title,
+			reason:reason
 		});
 	}
 }
 
-Station.prototype.addTracks = function (tracks) {
-	tracks.forEach(this.addTrack.bind(this));
+Station.prototype.getTotalDuration = function () {
+	var duration = 0;
+
+	this.tracks.forEach(function (track) {
+		duration += track.duration;
+	});
+
+	return duration;
+}
+
+Station.prototype.addTracks = function (tracks, reason) {
+	tracks.forEach(function (track) {
+		this.addTrack(track, reason);
+	});
 }
 
 Station.prototype.asJSON = function () {
@@ -89,6 +97,8 @@ Station.prototype.asJSON = function () {
 		title:this.title,
 		track_count:this.tracks.length,
 		seed_artist_permalink:this.seed_artist_permalink,
+		totalDuration:this.getTotalDuration(),
+		history:this.history,
 		_id:this._id
 	}
 }
@@ -164,7 +174,7 @@ Station.prototype.getNextTrack = function () {
 Station.prototype.addToHistory = function (track) {
 	this.history.push(track);
 
-	if (this.history.length > 10) {
+	if (this.history.length > Math.round(this.tracks.length * 0.5)) {
 		this.history.shift();
 	}
 }
@@ -177,7 +187,9 @@ Station.prototype.addArtist = function (artist) {
 	.then(function (tracks) {
 		var defer = Q.defer();
 
-		tracks.forEach(station.addTrack.bind(station));
+		tracks.forEach(function (track) {
+			station.addTrack(track, 'You liked ' + artist.username);
+		});
 		station.save(function () {
 			defer.resolve(station);
 		});
@@ -185,6 +197,36 @@ Station.prototype.addArtist = function (artist) {
 		return defer.promise;
 
 	});
+}
+
+Station.prototype.getTrackIndex = function (track) {
+	return this.tracks.indexOf(track);
+}
+
+Station.prototype.getTrackById = function (trackId) {
+	var match = null;
+
+	for(var i = 0; i < this.tracks.length; i+= 1) {
+		if (this.tracks[i].id.toString() === trackId.toString()) {
+			match = this.tracks[i];
+			break;
+		}
+	}
+
+
+	return match;
+}
+
+Station.prototype.removeTrack = function (trackId) {
+	var track = this.getTrackById(trackId);
+	var trackIndex;
+
+	if (track !== null) {
+		trackIndex = this.getTrackIndex(track);
+		this.tracks.splice(trackIndex, 1);
+	}
+
+	return track;
 }
 
 module.exports = Station;

@@ -57,8 +57,10 @@ AdjacentArtists.prototype = {
 	},
 
 
-	getCluster: function () {
+	getCluster: function (edgeLimit) {
+		edgeLimit = edgeLimit || 40;
 		var followingsArray = this.countAndSort();
+		var popularThreshold = 100000;
 
 		console.log('sorting artists');
 		var sorted = _.sortBy(followingsArray, function (a) {
@@ -70,7 +72,7 @@ AdjacentArtists.prototype = {
 			percentage = ((a.count / a.artist.followers_count) * 100);
 			a.score = percentage;
 
-			if (this._mainArtist.followers_count > 1000000 || this._mainArtist.followings_count === 0) {
+			if (this._mainArtist.followers_count > popularThreshold || this._mainArtist.followings_count === 0) {
 				return -a.count;
 			}
 
@@ -79,10 +81,10 @@ AdjacentArtists.prototype = {
 		}.bind(this));
 
 		
-		var spliced = sorted.splice(0, 40);
+		var spliced = sorted.splice(0, edgeLimit);
 		
 		
-		if (this._mainArtist.followers_count > 1000000 || this._mainArtist.followings_count === 0) {
+		if (this._mainArtist.followers_count > popularThreshold || this._mainArtist.followings_count === 0) {
 			var data = [];
 			spliced.forEach(function (artistData) {
 				var d = [1, 1, artistData.count];

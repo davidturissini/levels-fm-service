@@ -56,25 +56,14 @@ app.get('/users/:user_id/stations', function (req, res) {
 
 
 app.get('/stations/:station_id', function (req, res) {
-	var promises = [];
-	var username = req.params.user_id;
 
-	var userQuery = User.findOne({username:username});
-	
-	userQuery.exec().then(function (user) {
-		var stationQuery = Station.findOne({
-			user:user._id,
-			_id:req.params.station_id
-		});
+	var stationQuery = Station.findById(req.params.station_id);
 
-		stationQuery.exec()
-			.then(function (station) {
-				res.write(JSON.stringify(station.asJSON()));
-				res.end();
-			})
-		
-
-	});
+	stationQuery.exec()
+		.then(function (station) {
+			res.write(JSON.stringify(station.asJSON()));
+			res.end();
+		})
 });
 
 
@@ -126,22 +115,19 @@ app.del('/stations/:station_id', function (req, res) {
 
 
 app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
-	var promises = [];
 
-	Track.findById(req.params.track_id).exec()
-	.then(function (track) {
-		var stationQuery = Station.findById(req.params.station_id);
+	var stationQuery = Station.findById(req.params.station_id);
+	
+	stationQuery.exec()
+		.then(function (station) {
+			var track = station.getTrackById(req.params.track_id);
 		
-		stationQuery.exec()
-			.then(function (station) {
+			res.write(JSON.stringify(station));
+			res.end();
 			
-				res.write(JSON.stringify(station));
-				res.end();
-				
-				importEdgeDelegate(track.artist_permalink, station._id, 3);
-				
-			});
-	});
+			importEdgeDelegate(track.artist_permalink, station._id, 3);
+			
+		});
 });
 
 
@@ -175,12 +161,11 @@ app.del('/stations/:station_id/tracks/:track_id', function (req, res) {
 
 	.then(function (station) {
 
-		var trackIndex = station.tracks.indexOf(req.params.track_id);
-		station.tracks.splice(trackIndex, 1);
+		var track = station.removeTrack(req.params.track_id);
 
 		station.save(function () {
 			console.log('removed', req.params.track_id, 'from station', station.title);
-			res.write(JSON.stringify(station.asJSON()));
+			res.write(JSON.stringify(track));
 			res.end();
 		});
 
@@ -203,6 +188,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 
 	Q.spread(promises, function (user, matchedArtist) {
 		artist = matchedArtist;
+
 		return Station.create(user, artist);
 	})
 
@@ -211,7 +197,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 		res.write(JSON.stringify(station.asJSON()));
 		res.end();
 
-		importEdgeDelegate(artist.permalink, station._id, 40);
+		importEdgeDelegate(artist.permalink, station._id, 60);
 			
 	});
 	
