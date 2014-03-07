@@ -44,7 +44,7 @@ function importTracksFromArtist (artistPermalink, station, edgeLimit) {
 		})
 
 		.then(function () {
-			Station.update({_id: station._id}, {tracks:station.tracks}, {}, function () {
+			Station.update({_id: station._id}, {status:'imported', tracks:station.tracks}, {}, function () {
 				var duration = (new Date().getTime() - time) / 1000;
 				console.log('elapsed time', duration);
 				importDeferred.resolve();

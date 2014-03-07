@@ -133,6 +133,7 @@ app.get('/stations/:station_id/tracks/up/:track_id', function (req, res) {
 
 app.get('/stations/:station_id/tracks/next', function (req, res) {
 	var station;
+	var track;
 
 	Station.findById(req.params.station_id).exec()
 
@@ -141,8 +142,8 @@ app.get('/stations/:station_id/tracks/next', function (req, res) {
 		return station.getNextTrack();
 	})
 
-	.then(function (track) {
-		
+	.then(function (nextTrack) {
+		track = nextTrack;
 		station.addToHistory(track);
 		res.write(JSON.stringify(track));
 		res.end();
@@ -164,13 +165,24 @@ app.del('/stations/:station_id/tracks/:track_id', function (req, res) {
 		var track = station.removeTrack(req.params.track_id);
 
 		station.save(function () {
-			console.log('removed', req.params.track_id, 'from station', station.title);
 			res.write(JSON.stringify(track));
 			res.end();
 		});
 
 	})
 
+});
+
+
+app.get('/users/:user_id', function (req, res) {
+	var username = req.params.user_id;
+	var userQuery = User.findOne({username:username});
+
+	userQuery.exec()
+		.then(function (user) {
+			res.write(JSON.stringify(user.asJSON()));
+			res.end();
+		});
 });
 
 

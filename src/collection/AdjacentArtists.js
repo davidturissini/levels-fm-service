@@ -62,9 +62,18 @@ AdjacentArtists.prototype = {
 		var followingsArray = this.countAndSort();
 		var popularThreshold = 100000;
 
-		console.log('sorting artists');
-		var sorted = _.sortBy(followingsArray, function (a) {
-			var percentage;
+		var sortedByCount = _.sortBy(followingsArray, function (a) {
+			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
+				return 1;
+			}
+
+			return -a.count;
+
+		}.bind(this));
+
+
+		var sortedByPercentage = _.sortBy(followingsArray, function (a) {
+			var percentage
 			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
 				return 1;
 			}
@@ -72,31 +81,26 @@ AdjacentArtists.prototype = {
 			percentage = ((a.count / a.artist.followers_count) * 100);
 			a.score = percentage;
 
-			if (this._mainArtist.followers_count > popularThreshold || this._mainArtist.followings_count === 0) {
-				return -a.count;
-			}
-
 			return -a.score;
-
 		}.bind(this));
 
-		
-		var spliced = sorted.splice(0, edgeLimit);
-		
-		
-		if (this._mainArtist.followers_count > popularThreshold || this._mainArtist.followings_count === 0) {
-			var data = [];
-			spliced.forEach(function (artistData) {
-				var d = [1, 1, artistData.count];
-				d.artist = artistData.artist;
-				data.push(d);
-			});
+		var intersection = _.intersection(sortedByCount.splice(0, Math.round(sortedByCount.length * 0.4)), sortedByPercentage.splice(0, Math.round(sortedByCount.length * 0.4)));
 
-			var clusters = clusterfck.kmeans(data, 2);
-			
-			var clusterIndex = (clusters[0][0][2] > clusters[1][0][2]) ? 0 : 1;
-			spliced = clusters[clusterIndex];
+
+		var spliced;
+
+		if (intersection.length < edgeLimit) {
+			intersection = intersection.concat(sortedByPercentage.splice(0, edgeLimit + intersection.length));
 		}
+
+		intersection = _.sortBy(intersection, function (a) {
+			return -a.score;
+		});
+
+		spliced = _.uniq(intersection).splice(0, edgeLimit);
+		
+		console.log(intersection);
+		
 
 		spliced = _.map(spliced, function (clusterData) {
 			return clusterData.artist;

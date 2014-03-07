@@ -6,7 +6,8 @@ var station = require('./Station');
 var userSchema = new mongoose.Schema({
 	"id": Number,
 	"username": String,
-	"stations":[{type: mongoose.Schema.Types.ObjectId, ref: 'Station'}]
+	"stations":[{type: mongoose.Schema.Types.ObjectId, ref: 'Station'}],
+	"history":[]
 });
 
 
@@ -24,6 +25,21 @@ function createUser (params) {
 	return defer.promise;
 
 }
+
+User.prototype.addToHistory = function (track) {
+	this.history.push(track);
+
+	if(this.history.length > 20) {
+		this.history.shift();
+	}
+}
+
+User.prototype.asJSON = function () {
+	return {
+		username:this.username,
+		history:this.history
+	};
+};
 
 
 module.exports = User;

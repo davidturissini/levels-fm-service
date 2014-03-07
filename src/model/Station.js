@@ -12,7 +12,8 @@ var stationSchema = new mongoose.Schema({
 	"seed_artist_permalink":String,
 	"user":[{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
 	"tracks":[],
-	"history":[]
+	"history":[],
+	"status":String
 });
 
 
@@ -37,6 +38,7 @@ Station.create = function (owner, seedArtist) {
 			var defer = Q.defer();
 			station.user = owner;
 			station.seed_artist_permalink = seedArtist.permalink;
+			station.status = 'importing';
 			station.save(function () {
 				defer.resolve();
 			});
@@ -99,6 +101,7 @@ Station.prototype.asJSON = function () {
 		seed_artist_permalink:this.seed_artist_permalink,
 		totalDuration:this.getTotalDuration(),
 		history:this.history,
+		status:this.status,
 		_id:this._id
 	}
 }
