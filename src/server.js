@@ -14,6 +14,7 @@ var importEdgeDelegate = require('./tasks/importEdgeDelegate');
 var app = express();
 app.use(cors());
 app.use(express.bodyParser());
+app.use(express.cookieParser('my secret here'));
 app.use(app.router);
 
 soundcloud.configure({
@@ -56,14 +57,37 @@ app.post('/users', function (req, res) {
 app.post('/login', function (req, res) {
 	User.login(req.body.username, req.body.password)
 		.then(function (user) {
-			res.write(JSON.stringify(user.asJSON()));
-			res.end();
+			User.update({username: user.username}, {token:user.token}, {}, function () {
+				var userJSON = user.asJSON();
+				userJSON.token = user.token;
+				res.write(JSON.stringify(userJSON));
+				res.end();
+			});
+			
 		}, function (err) {
 			res.write(JSON.stringify({
 				error:err.message
 			}));
 			res.end();
 		});
+});
+
+
+app.post('/logout', function (req, res) {
+	
+	User.findLoggedIn(req.body.username, req.body.token)
+		.then(function (user) {
+
+			if (user) {
+				user.logout();
+
+				User.update({username: user.username}, {token:user.token}, {}, function () {
+					res.write(JSON.stringify(user.asJSON()));
+					res.end();
+				});
+			}
+		});
+
 });
 
 
@@ -101,48 +125,55 @@ app.get('/stations/:station_id', function (req, res) {
 });
 
 
-app.del('/stations/:station_id', function (req, res) {
+function verifyUserLoggedIn (username, token, res) {
+	return User.findLoggedIn(username, token)
+		.then(function (user) {
+			if (!user) {
+				throw new Error();
+			}
+
+			return user;
+
+		})
+
+		.fail(function () {
+			res.send(401);
+			res.end();
+		})
+}
+
+
+app.del('/users/:user_id/stations/:station_id/token/:token', function (req, res) {
 	var promises = [];
 	var stationId = req.params.station_id;
 	var station;
-	var user;
 
+	verifyUserLoggedIn(req.params.user_id, req.params.token, res).then(function (user) {
 
-	Station.findOne({
-		_id:stationId
-	}).exec()
+		Station.findOne({
+			_id:stationId
+		}).exec()
 
-	.then(function (match) {
-		station = match;
-		var defer = Q.defer();
+		.then(function (station) {
+			var defer = Q.defer();
+			station.remove(function () {
+				defer.resolve();
+			});
 
+			return defer.promise;
+		})
 
-		station.populate('user', function () {
-			user = station.user;
-			defer.resolve();
+		.then(function () {
+
+			res.write(JSON.stringify(station.asJSON()));
+			res.end();
+
+			user.stations.splice(user.stations.indexOf(stationId), 1);
+			user.save();
+
 		});
-
-		return defer.promise;
-	})
-
-	.then(function () {
-		var defer = Q.defer();
-		station.remove(function () {
-			defer.resolve();
-		});
-
-		return defer.promise;
-	})
-
-	.then(function () {
-
-		res.write(JSON.stringify(station.asJSON()));
-		res.end();
-
-		user.stations.splice(user.stations.indexOf(stationId), 1);
-		user.save();
-
 	});
+	
 
 });
 
@@ -224,28 +255,28 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 	var promises = [];
 	var username = req.params.user_id;
 	var artistPermalink = req.params.artist_id;
-	var artist;
 
-	var userQuery = User.findOne({username:username});
-	promises.push(userQuery.exec());
+	verifyUserLoggedIn(username, req.body.token, res).then(function (user) {
 
-	var artistQuery = artistImport.findOrImport(artistPermalink);
-	promises.push(artistQuery);
+			return artistImport.findOrImport(artistPermalink)
+				.then(function (matchedArtist) {
 
-	Q.spread(promises, function (user, matchedArtist) {
-		artist = matchedArtist;
+					artist = matchedArtist;
 
-		return Station.create(user, artist);
-	})
+					return Station.create(user, artist);
+				})
 
-	.then(function (station) {
+				.then(function (station) {
 
-		res.write(JSON.stringify(station.asJSON()));
-		res.end();
+					res.write(JSON.stringify(station.asJSON()));
+					res.end();
 
-		importEdgeDelegate(artist.permalink, station._id, 60);
-			
-	});
+					importEdgeDelegate(artist.permalink, station._id, 60);
+						
+				});
+
+		});
+
 	
 });
 

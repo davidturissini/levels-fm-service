@@ -68,6 +68,25 @@ User.login = function (username, password) {
 
 }
 
+User.findLoggedIn = function (username, token) {
+	var defer = Q.defer();
+	
+	User.findOne({
+		username:username,
+		token:token
+	}).exec().then(function (user) {
+		defer.resolve(user);
+	});
+
+	return defer.promise;
+}
+
+
+User.isCurrentUser = function (user, cookies) {
+
+}
+
+
 User.prototype.__generateToken = function () {
 	var defer = Q.defer();
 	var user = this;
@@ -90,11 +109,14 @@ User.prototype.addToHistory = function (track) {
 	}
 }
 
+User.prototype.logout = function () {
+	this.token = null;
+}
+
 User.prototype.asJSON = function () {
 	return {
 		username:this.username,
-		history:this.history,
-		token:this.token
+		history:this.history
 	};
 };
 
