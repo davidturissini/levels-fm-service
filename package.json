@@ -7,15 +7,16 @@
     "grunt-contrib-nodeunit": "~0.2.0",
     "grunt-contrib-uglify": "~0.2.2"
   },
-  "dependencies":{
+  "dependencies": {
     "mongodb": "~1.1.11",
     "mongoose": "~3.8.1",
     "q": "~0.8.12",
-    "cors":"~2.1.1",
-    "express":"~3.4.8",
-    "soundcloud":"git://github.com/davidturissini/soundcloud.git",
-    "underscore":"~1.6.0",
-    "clusterfck":"~0.5.2"
+    "cors": "~2.1.1",
+    "express": "~3.4.8",
+    "soundcloud": "git://github.com/davidturissini/soundcloud.git",
+    "underscore": "~1.6.0",
+    "clusterfck": "~0.5.2",
+    "password-hash": "~1.2.1"
   },
   "engines": {
     "node": "0.10.25",

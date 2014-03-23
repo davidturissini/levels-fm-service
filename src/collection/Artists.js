@@ -11,6 +11,10 @@ Artists.prototype = {
 		return this._data.length;
 	},
 
+	each: function (handler) {
+		this._data.forEach(handler);
+	},
+
 	soundcloudGetFavorites: function () {
 		var defer = q.defer();
 		var result = defer.promise;

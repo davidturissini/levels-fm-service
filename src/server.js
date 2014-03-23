@@ -13,6 +13,7 @@ var importEdgeDelegate = require('./tasks/importEdgeDelegate');
 
 var app = express();
 app.use(cors());
+app.use(express.bodyParser());
 app.use(app.router);
 
 soundcloud.configure({
@@ -20,16 +21,49 @@ soundcloud.configure({
 });
 
 
-app.get('/users', function (req, res) {
-	var user = new User({
-		username:'dave'
-	});
+app.post('/users', function (req, res) {
+	var user;
 
-	user.save(function () {
-		res.write(JSON.stringify(user));
+	try {
+		user = User.create(req.body);
+	} catch (e) {
+		res.write(JSON.stringify({
+			error:e.message
+		}));
 		res.end();
-	})
+	}
 
+	User.checkUserNameExists(user.username)
+		.then(function (exists) {
+			if (exists === false) {
+
+				user.save(function () {
+					res.write(JSON.stringify(user.asJSON()));
+					res.end();
+				});
+				
+			} else {
+				res.write(JSON.stringify({
+					error:'Username ' + user.username + ' already exists.'
+				}));
+				res.end();
+			}
+		});
+
+});
+
+
+app.post('/login', function (req, res) {
+	User.login(req.body.username, req.body.password)
+		.then(function (user) {
+			res.write(JSON.stringify(user.asJSON()));
+			res.end();
+		}, function (err) {
+			res.write(JSON.stringify({
+				error:err.message
+			}));
+			res.end();
+		});
 });
 
 
