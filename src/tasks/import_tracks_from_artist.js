@@ -9,21 +9,24 @@ var totalArtistsCount = 0;
 
 
 
-function artistAdjacentArtistsReady (station, edgeLimit, adjacentArtists) {
+function artistAdjacentArtistsReady (station, edgeLimit, artistPermalink, adjacentArtists) {
 	var artists = adjacentArtists.getCluster(edgeLimit);
 	var queue = [];
 	var numExecuted = 0;
+	var time = new Date().getTime();
 	totalArtistsCount += artists.count();
+
 
 	return artists.soundcloudGetTracks()
 		.then(function (tracks) {
 			tracks.forEach(function (track) {
-				station.addTrack(track, 'You liked ' + artist.username);
+				station.addTrack(track, 'You liked ' + artistPermalink);
 			});
 		})
 
 	.then(function () {
 		var defer = q.defer();
+
 		Station.update({_id: station._id}, {status:'imported', tracks:station.tracks}, {}, function () {
 			var duration = (new Date().getTime() - time) / 1000;
 			console.log('elapsed time', duration);
@@ -101,7 +104,7 @@ function importTracksFromArtist (artistPermalink, station, edgeLimit) {
 			});
 		})
 
-		.then(artistAdjacentArtistsReady.bind(undefined, station, edgeLimit))
+		.then(artistAdjacentArtistsReady.bind(undefined, station, edgeLimit, artistPermalink))
 	
 
 }
