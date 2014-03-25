@@ -275,7 +275,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 					res.write(JSON.stringify(station.asJSON()));
 					res.end();
 
-					importEdgeDelegate(artist.permalink, station._id, 60);
+					importEdgeDelegate(artist.permalink, station._id, 30);
 						
 				});
 
