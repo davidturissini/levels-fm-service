@@ -20,7 +20,15 @@ function artistAdjacentArtistsReady (station, edgeLimit, artistPermalink, adjace
 	return artists.soundcloudGetTracks()
 		.then(function (tracks) {
 			tracks.forEach(function (track) {
-				station.addTrack(track, 'You liked ' + artistPermalink);
+				var ranking;
+				artists.each(function (artist, index) {
+					if (artist.permalink === track.user.permalink) {
+						ranking = (edgeLimit - index);
+					}
+				});
+
+				
+				station.addTrack(track, 'You liked ' + artistPermalink, ranking);
 			});
 		})
 

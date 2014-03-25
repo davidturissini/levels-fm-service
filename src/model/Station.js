@@ -66,14 +66,15 @@ Station.prototype.hasTrack = function (track) {
 	return !(this.getTrackById(incomingTrackId) === null);
 };
 
-Station.prototype.addTrack = function (track, reason) {
+Station.prototype.addTrack = function (track, reason, ranking) {
 	if (this.hasTrack(track) === false) {
 		this.tracks.push({
 			id:track.id,
 			artist_permalink:track.user.permalink,
 			duration:track.duration,
 			title:track.title,
-			reason:reason
+			reason:reason,
+			ranking:ranking
 		});
 	}
 }
@@ -161,7 +162,13 @@ Station.prototype.getNextTrack = function () {
 		});
 	}
 
-	trackIndex = Math.round(Math.random() * (availableTracks.length - 1));
+	availableTracks = _.sortBy(availableTracks, function (a) {
+		return -a.ranking;
+	});
+
+
+
+	trackIndex = Math.round(Math.pow(Math.random(), 3) * (availableTracks.length - 1));
 
 
 
@@ -191,7 +198,7 @@ Station.prototype.addArtist = function (artist) {
 		var defer = Q.defer();
 
 		tracks.forEach(function (track) {
-			station.addTrack(track, 'You liked ' + artist.username);
+			station.addTrack(track, 'You liked ' + artist.username, 100);
 		});
 		station.save(function () {
 			defer.resolve(station);

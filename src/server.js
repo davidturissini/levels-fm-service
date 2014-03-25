@@ -56,10 +56,13 @@ app.post('/users', function (req, res) {
 
 app.post('/login', function (req, res) {
 	User.login(req.body.username, req.body.password)
-		.then(function (user) {
-			User.update({username: user.username}, {token:user.token}, {}, function () {
+		.then(function (data) {
+			var user = data.user;
+			var token = data.token;
+
+			User.update({username: user.username}, {tokens:user.tokens}, {}, function () {
 				var userJSON = user.asJSON();
-				userJSON.token = user.token;
+				userJSON.token = token;
 				res.write(JSON.stringify(userJSON));
 				res.end();
 			});
@@ -74,14 +77,15 @@ app.post('/login', function (req, res) {
 
 
 app.post('/logout', function (req, res) {
+	var token = req.body.token;
 	
-	User.findLoggedIn(req.body.username, req.body.token)
+	User.findLoggedIn(req.body.username, token)
 		.then(function (user) {
 
 			if (user) {
-				user.logout();
+				user.logout(token);
 
-				User.update({username: user.username}, {token:user.token}, {}, function () {
+				User.update({username: user.username}, {tokens:user.tokens}, {}, function () {
 					res.write(JSON.stringify(user.asJSON()));
 					res.end();
 				});

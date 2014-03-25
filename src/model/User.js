@@ -14,7 +14,7 @@ var userSchema = new mongoose.Schema({
 	"stations":[{type: mongoose.Schema.Types.ObjectId, ref: 'Station'}],
 	"history":[],
 	"password":String,
-	"token":String
+	"tokens":[]
 });
 
 
@@ -72,10 +72,14 @@ User.findLoggedIn = function (username, token) {
 	var defer = Q.defer();
 	
 	User.findOne({
-		username:username,
-		token:token
+		username:username
 	}).exec().then(function (user) {
-		defer.resolve(user);
+
+		if (user && user.tokens.indexOf(token) !== -1) {
+			defer.resolve(user);
+		} else {
+			defer.resolve(null);
+		}
 	});
 
 	return defer.promise;
@@ -93,8 +97,11 @@ User.prototype.__generateToken = function () {
 
 	crypto.randomBytes(48, function(ex, buf) {
 	  var token = buf.toString('hex');
-	  user.token = token;
-	  defer.resolve(user);
+	  user.tokens.push(token);
+	  defer.resolve({
+	  	user:user,
+	  	token:token
+	  });
 	});
 
 	return defer.promise;
@@ -109,8 +116,10 @@ User.prototype.addToHistory = function (track) {
 	}
 }
 
-User.prototype.logout = function () {
-	this.token = null;
+User.prototype.logout = function (token) {
+	var tokenIndex = this.tokens.indexOf(token);
+	
+	this.tokens.splice(tokenIndex, 1);
 }
 
 User.prototype.asJSON = function () {

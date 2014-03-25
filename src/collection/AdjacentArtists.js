@@ -61,9 +61,10 @@ AdjacentArtists.prototype = {
 		edgeLimit = edgeLimit || 40;
 		var followingsArray = this.countAndSort();
 		var popularThreshold = 50000;
+		var minTrackCount = 5;
 
 		var sortedByCount = _.sortBy(followingsArray, function (a) {
-			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
+			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < minTrackCount || this._blacklist.indexOf(a.artist.permalink) !== -1) {
 				return 1;
 			}
 
@@ -74,7 +75,7 @@ AdjacentArtists.prototype = {
 
 		var sortedByPercentage = _.sortBy(followingsArray, function (a) {
 			var percentage
-			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
+			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < minTrackCount || this._blacklist.indexOf(a.artist.permalink) !== -1) {
 				return 1;
 			}
 
@@ -111,9 +112,6 @@ AdjacentArtists.prototype = {
 				intersection = clusters[clusterIndex];
 			}
 		}
-
-		
-
 		
 
 		var spliced;
@@ -122,14 +120,7 @@ AdjacentArtists.prototype = {
 
 		spliced = _.map(spliced, function (clusterData) {
 			return clusterData.artist;
-		}).sort(function (a, b) {
-			if (a.track_count < b.track_count) {
-				return -1;
-			}
-
-			return 1;
 		});
-
 
 
 		return new Artists(spliced);
