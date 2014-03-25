@@ -60,7 +60,7 @@ AdjacentArtists.prototype = {
 	getCluster: function (edgeLimit) {
 		edgeLimit = edgeLimit || 40;
 		var followingsArray = this.countAndSort();
-		var popularThreshold = 100000;
+		var popularThreshold = 50000;
 
 		var sortedByCount = _.sortBy(followingsArray, function (a) {
 			if (a.artist.permalink === 'undefined' || a.artist.followers_count < 2000 || a.artist.track_count < 2 || this._blacklist.indexOf(a.artist.permalink) !== -1) {
@@ -84,19 +84,39 @@ AdjacentArtists.prototype = {
 			return -a.score;
 		}.bind(this));
 
-		var intersection = _.intersection(sortedByCount.splice(0, Math.round(sortedByCount.length * 0.4)), sortedByPercentage.splice(0, Math.round(sortedByCount.length * 0.4)));
+		if (this._mainArtist.followers_count < popularThreshold) {
+		
+			var intersection = _.intersection(sortedByCount.splice(0, Math.round(sortedByCount.length * 0.4)), sortedByPercentage.splice(0, Math.round(sortedByCount.length * 0.4)));
+			
+			if (intersection.length < edgeLimit) {
+				intersection = intersection.concat(sortedByPercentage.splice(0, edgeLimit + intersection.length));
+			}
 
+			intersection = _.sortBy(intersection, function (a) {
+				return -a.score;
+			});
 
-		var spliced;
+		} else {
+			if (this._mainArtist.followers_count > popularThreshold || this._mainArtist.followings_count === 0) {
+				var data = [];
+				sortedByCount.forEach(function (artistData) {
+					var d = [1, 1, artistData.count];
+					d.artist = artistData.artist;
+					data.push(d);
+				});
 
-		if (intersection.length < edgeLimit) {
-			intersection = intersection.concat(sortedByPercentage.splice(0, edgeLimit + intersection.length));
+				var clusters = clusterfck.kmeans(data, 2);
+
+				var clusterIndex = (clusters[0][0][2] > clusters[1][0][2]) ? 0 : 1;
+				intersection = clusters[clusterIndex];
+			}
 		}
 
-		intersection = _.sortBy(intersection, function (a) {
-			return -a.score;
-		});
+		
 
+		
+
+		var spliced;
 		spliced = _.uniq(intersection).splice(0, edgeLimit);
 
 
