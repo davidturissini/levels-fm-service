@@ -168,7 +168,7 @@ Station.prototype.getNextTrack = function () {
 
 
 
-	trackIndex = Math.round(Math.pow(Math.random(), 3) * (availableTracks.length - 1));
+	trackIndex = Math.round(Math.pow(Math.random(), 5) * (availableTracks.length - 1));
 
 	if (this.history.length < 5) {
 		trackIndex = 0;
@@ -188,7 +188,7 @@ Station.prototype.getNextTrack = function () {
 Station.prototype.addToHistory = function (track) {
 	this.history.push(track);
 
-	if (this.history.length > Math.round(this.tracks.length * 0.5)) {
+	if (this.history.length > 20) {
 		this.history.shift();
 	}
 }
