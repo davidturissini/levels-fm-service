@@ -8,7 +8,6 @@ var AdjacentArtists = require('./../collection/AdjacentArtists');
 var totalArtistsCount = 0;
 
 
-
 function artistAdjacentArtistsReady (station, edgeLimit, artistPermalink, adjacentArtists) {
 	var artists = adjacentArtists.getCluster(edgeLimit);
 	var queue = [];
