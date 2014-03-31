@@ -168,12 +168,7 @@ Station.prototype.getNextTrack = function () {
 
 
 
-	trackIndex = Math.round(Math.pow(Math.random(), 5) * (availableTracks.length - 1));
-
-	if (this.history.length < 5) {
-		trackIndex = 0;
-	}
-
+	trackIndex = Math.round(Math.pow(Math.random(), 3) * (availableTracks.length - 1));
 
 
 	return availableTracks[trackIndex];
