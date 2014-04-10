@@ -1,6 +1,5 @@
 var database = require('./../database');
 var Station = require('./../model/Station');
-var importTracksFromArtist = require('./import_tracks_from_artist');
 
 var stationIdIndex = process.argv.indexOf('-s');
 var stationId = process.argv[stationIdIndex + 1];
@@ -8,6 +7,9 @@ var artistPermalinkIndex = process.argv.indexOf('-a');
 var artistPermalink = process.argv[artistPermalinkIndex + 1];
 var edgeLimitIndex = process.argv.indexOf('-el');
 var edgeLimit = process.argv[edgeLimitIndex + 1];
+
+
+var importer = require('soundcloud-importer');
 
 
 var stationQuery = Station.findOne({
@@ -24,10 +26,23 @@ database.connect()
 
 
 function processStation(artistPermalink, station) {
-		return importTracksFromArtist(artistPermalink, station, edgeLimit)
+		return importer.import(artistPermalink, edgeLimit)
 
-			.then(function () {
-				console.log('exiting');
-				process.exit();
+			.then(function (tracks) {
+				tracks.forEach(function (track) {
+					station.addTrack(track, 'You liked ' + artistPermalink, track.ranking);
+				});
+
+				Station.update({_id: station._id}, {status:'imported', tracks:station.tracks}, {}, function () {
+					console.log('station updated');
+					console.log('exiting');
+					process.exit();
+				});
+
+				
 			})
+
+			.fail(function (e) {
+				console.log(e.stack);
+			});
 	}
