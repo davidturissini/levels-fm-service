@@ -1,8 +1,6 @@
 var mongoose = require('mongoose');
 var user = require('./User');
 var Q = require('q');
-var trackImporter = require('./../import/trackImporter');
-var artistImporter = require('./../import/artistImporter');
 var Track = require('./Track');
 var _ = require('underscore');
 
@@ -18,16 +16,8 @@ var stationSchema = new mongoose.Schema({
 
 
 var Station = mongoose.model('Station', stationSchema);
-/*
-Station.findByIdAndAddTracks = function (id, tracks) {
-	console.log('saving tracks to station', id);
-	return Station.findById(id).exec()
-		.then(function (station) {
-			station.addTracks(tracks);
-			return station;
-		});
-}
-*/
+
+
 Station.create = function (owner, seedArtist) {
 	var station = new Station({
 		title:seedArtist.username + ' Radio'

@@ -5,8 +5,6 @@ var soundcloud = require('soundcloud').soundcloud;
 var serverPort = process.env.PORT || 3000;
 var database = require('./database');
 var Artist = require('./model/Artist');
-var Track = require('./model/Track');
-var artistImport = require('./import/artistImporter');
 var User = require('./model/User');
 var Station = require('./model/Station');
 var importEdgeDelegate = require('./tasks/importEdgeDelegate');
@@ -262,7 +260,7 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 
 	verifyUserLoggedIn(username, req.body.token, res).then(function (user) {
 
-			return artistImport.findOrImport(artistPermalink)
+			return Artist.import(artistPermalink)
 				.then(function (matchedArtist) {
 
 					artist = matchedArtist;
@@ -277,7 +275,11 @@ app.post('/users/:user_id/stations/:artist_id', function (req, res) {
 
 					importEdgeDelegate(artist.permalink, station._id, 30);
 						
-				});
+				})
+
+				.fail(function (e) {
+					console.log(e.stack);
+				})
 
 		});
 
